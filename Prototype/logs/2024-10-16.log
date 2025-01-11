@@ -1,0 +1,12 @@
+Ether / IP / ICMP 192.168.1.82 > 192.168.1.66 echo-request 0
+Ether / IP / ICMP 192.168.1.82 > 192.168.1.66 echo-request 0
+Ether / IP / ICMP 192.168.1.82 > 192.168.1.66 echo-request 0
+Ether / IP / TCP 192.168.1.82:ftp_data > 192.168.1.66:8888 S
+Ether / IP / UDP 192.168.1.82:domain > 192.168.1.66:8888 / Raw
+Ether / IP / UDP 192.168.1.82:domain > 192.168.1.66:8888 / Raw
+Ether / IP / TCP 192.168.1.82:ftp_data > 192.168.1.66:8888 S
+Ether / IP / ICMP 192.168.1.82 > 192.168.1.66 echo-request 0
+Ether / IP / ICMP 192.168.1.82 > 192.168.1.66 echo-request 0
+Ether / IP / TCP 192.168.1.82:ftp_data > 192.168.1.66:8888 S
+Ether / IP / UDP 192.168.1.82:domain > 192.168.1.66:8888 / Raw
+Ether / IP / TCP 192.168.1.82:ftp_data > 192.168.1.66:8888 S
