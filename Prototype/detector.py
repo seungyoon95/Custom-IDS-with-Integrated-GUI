@@ -6,7 +6,7 @@ import time
 import os
 import socket
 from collections import defaultdict
-
+from scapy.layers.inet import IP
 
 local_ip = socket.gethostbyname(socket.gethostname())
 
@@ -79,19 +79,15 @@ def icmp_flood(packet):
                 write_to_log(packet)
 
 
-# To Be Implemented
-def port_scan(packet):
-    pass
+def ping_of_death(packet):
+    if packet.haslayer('IP'):
+        ip_layer = packet['IP']
 
+        size = ip_layer.len
 
-# To be Implemented
-def arp_spoof(packet):
-    pass
-
-
-# To be Implemented
-def http_flood(packet):
-    pass
+        if size > 65535:
+            print(f"***ALERT*** Ping of Death detected: Oversized packet from: {ip_layer.src}, packet size: {size} bytes")
+            write_to_log(packet)
 
 
 # Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
@@ -99,6 +95,4 @@ def attack_analyzer(packet):
     syn_flood(packet)
     udp_flood(packet)
     icmp_flood(packet)
-    port_scan(packet)
-    arp_spoof(packet)
-    http_flood(packet)
+    ping_of_death(packet)

@@ -109,8 +109,21 @@ def icmp_flood_pcap(file_name, timeframe, threshold):
     capture.close()
 
 
+def ping_of_death_pcap(file_name):
+    capture = pyshark.FileCapture(file_name)
+
+    for packet in capture:
+        if hasattr(packet, 'ip'):
+            ip_layer = packet.ip
+            size = int(ip_layer.len)
+
+            if size > 65535:
+                print(f"Potential Ping of Death detected from: {ip_layer.src}")
+
+
 def run_pcap_analyzer(filename): 
     syn_flood_pcap(filename, constants.TIMEFRAME, constants.THRESHOLD)
     udp_flood_pcap(filename, constants.TIMEFRAME, constants.THRESHOLD)
     icmp_flood_pcap(filename, constants.TIMEFRAME, constants.THRESHOLD)
+    ping_of_death_pcap(filename)
     print("\n")
