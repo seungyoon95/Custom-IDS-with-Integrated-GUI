@@ -52,27 +52,18 @@ def syn_flood(packet):
 
             pending_handshake[(source_ip, dst_ip)].append(current_time)
 
-            # Remove old SYNs from the queue
             while pending_handshake[(source_ip, dst_ip)] and current_time - pending_handshake[(source_ip, dst_ip)][0] > constants.TIMEFRAME:
                 pending_handshake[(source_ip, dst_ip)].popleft()
 
-            # Check for SYN flood
             if len(syn_count[source_ip]) > constants.THRESHOLD or len(pending_handshake[(source_ip, dst_ip)]) > constants.MAX_PENDING:
                 if source_ip != local_ip:
                     print(f"***ALERT*** SYN Flood Attack detected from: {source_ip}")
                     write_to_log(packet)
 
-            # Check if this is an ACK packet (ACK flag set, SYN flag not set)
         elif packet['TCP'].flags == 'A':
             if (source_ip, dst_ip) in pending_handshake:
                 if pending_handshake[(source_ip, dst_ip)]:
-                    # Remove the oldest pending SYN since it has been acknowledged
                     pending_handshake[(source_ip, dst_ip)].popleft()    
-
-        # if len(syn_count[source_ip]) > constants.THRESHOLD:
-        #     if source_ip != local_ip:
-        #         print(f"***ALERT*** SYN Flood Attack detected from: {source_ip}")
-        #         write_to_log(packet)
                 
 
 # Detects UDP Flood Attack based on given timeframe and threshold
