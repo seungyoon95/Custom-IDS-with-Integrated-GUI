@@ -6,7 +6,6 @@ import time
 import os
 import socket
 from collections import defaultdict, deque
-from scapy.layers.inet import IP
 
 
 # Dictionaries to hold packet counts from 
@@ -16,6 +15,7 @@ icmp_count = defaultdict(list)
 
 pending_handshake = defaultdict(deque)
 
+ip_whitelist = set()
 
 # Host IP address
 local_ip = socket.gethostbyname(socket.gethostname())
@@ -39,39 +39,44 @@ def write_to_log(packet):
 
 
 def ip_whitelisting(ip_address):
-    pass
+    if ip_address is not None and ip_address not in ip_whitelist:
+        ip_whitelist.add(ip_address)
+        print(f"IP: {ip_address} added to the whitelist")
+
+    return ip_whitelist
 
 
 # Detects SYN Flood Attack based on given timeframe and threshold
-def syn_flood(packet):
+def syn_flood(packet, ip_whitelist):
     if packet.haslayer('TCP') and packet.haslayer('IP'):
         source_ip = packet['IP'].src
         dst_ip = packet['IP'].dst
 
         current_time = time.time()
 
-        if packet['TCP'].flags == 'S':
-            syn_count[source_ip].append(current_time)
-            syn_count[source_ip] = [t for t in syn_count[source_ip] if current_time - t < constants.TIMEFRAME]
+        if source_ip not in ip_whitelist:
+            if packet['TCP'].flags == 'S':
+                syn_count[source_ip].append(current_time)
+                syn_count[source_ip] = [t for t in syn_count[source_ip] if current_time - t < constants.TIMEFRAME]
 
-            pending_handshake[(source_ip, dst_ip)].append(current_time)
+                pending_handshake[(source_ip, dst_ip)].append(current_time)
 
-            while pending_handshake[(source_ip, dst_ip)] and current_time - pending_handshake[(source_ip, dst_ip)][0] > constants.TIMEFRAME:
-                pending_handshake[(source_ip, dst_ip)].popleft()
+                while pending_handshake[(source_ip, dst_ip)] and current_time - pending_handshake[(source_ip, dst_ip)][0] > constants.TIMEFRAME:
+                    pending_handshake[(source_ip, dst_ip)].popleft()
 
-            if len(syn_count[source_ip]) > constants.THRESHOLD or len(pending_handshake[(source_ip, dst_ip)]) > constants.MAX_PENDING:
-                if source_ip != local_ip:
-                    print(f"***ALERT*** SYN Flood Attack detected from: {source_ip}")
-                    write_to_log(packet)
+                if len(syn_count[source_ip]) > constants.THRESHOLD or len(pending_handshake[(source_ip, dst_ip)]) > constants.MAX_PENDING:
+                    if source_ip != local_ip:
+                        print(f"***ALERT*** SYN Flood Attack detected from: {source_ip}")
+                        write_to_log(packet)
 
-        elif packet['TCP'].flags == 'A':
-            if (source_ip, dst_ip) in pending_handshake:
-                if pending_handshake[(source_ip, dst_ip)]:
-                    pending_handshake[(source_ip, dst_ip)].popleft()    
+            elif packet['TCP'].flags == 'A':
+                if (source_ip, dst_ip) in pending_handshake:
+                    if pending_handshake[(source_ip, dst_ip)]:
+                        pending_handshake[(source_ip, dst_ip)].popleft()    
                 
 
 # Detects UDP Flood Attack based on given timeframe and threshold
-def udp_flood(packet):
+def udp_flood(packet, ip_whitelist):
     if packet.haslayer('UDP') and packet.haslayer('IP'):
         whitelisted_port = [53, 123]
 
@@ -79,45 +84,49 @@ def udp_flood(packet):
         dst_port = packet['IP'].dport
         current_time = time.time()
 
-        if (dst_port not in whitelisted_port):
-            udp_count[source_ip].append(current_time)
-            udp_count[source_ip] = [t for t in udp_count[source_ip] if current_time - t < constants.TIMEFRAME]
+        if source_ip not in ip_whitelist:
+            if (dst_port not in whitelisted_port):
+                udp_count[source_ip].append(current_time)
+                udp_count[source_ip] = [t for t in udp_count[source_ip] if current_time - t < constants.TIMEFRAME]
 
-        if len(udp_count[source_ip]) > constants.THRESHOLD:
-            if source_ip != local_ip:
-                print(f"***ALERT*** UDP Flood Attack detected from {source_ip}")
-                write_to_log(packet)
+            if len(udp_count[source_ip]) > constants.THRESHOLD:
+                if source_ip != local_ip:
+                    print(f"***ALERT*** UDP Flood Attack detected from {source_ip}")
+                    write_to_log(packet)
 
 
 # Detects ICMP Flood Attack based on given timeframe and threshold
-def icmp_flood(packet):
+def icmp_flood(packet, ip_whitelist):
     if packet.haslayer('ICMP') and packet.haslayer('IP'):
         source_ip = packet['IP'].src
         current_time = time.time()
 
-        icmp_count[source_ip].append(current_time)
-        icmp_count[source_ip] = [t for t in icmp_count[source_ip] if current_time - t < constants.TIMEFRAME]
 
-        if len(icmp_count[source_ip]) > constants.THRESHOLD:
-            if (source_ip != local_ip):
-                print(f"***ALERT*** ICMP Flood Attack detected from: {source_ip}")
-                write_to_log(packet)
+        if source_ip not in ip_whitelist:
+            icmp_count[source_ip].append(current_time)
+            icmp_count[source_ip] = [t for t in icmp_count[source_ip] if current_time - t < constants.TIMEFRAME]
+
+            if len(icmp_count[source_ip]) > constants.THRESHOLD:
+                if (source_ip != local_ip and source_ip not in ip_whitelist):
+                    print(f"***ALERT*** ICMP Flood Attack detected from: {source_ip}")
+                    write_to_log(packet)
 
 
-def ping_of_death(packet):
+def ping_of_death(packet, ip_whitelist):
     if packet.haslayer('IP'):
         ip_layer = packet['IP']
-
+        source_ip = ip_layer.src
         size = ip_layer.len
 
-        if size > 65535:
+        if size > 65535  and source_ip not in ip_whitelist:
             print(f"***ALERT*** Ping of Death detected: Oversized packet from: {ip_layer.src}, packet size: {size} bytes")
             write_to_log(packet)
 
 
 # Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
-def attack_analyzer(packet):
-    syn_flood(packet)
-    udp_flood(packet)
-    icmp_flood(packet)
-    ping_of_death(packet)
+def attack_analyzer(packet, ip_address=None):
+    ip_whitelist = ip_whitelisting(ip_address)
+    syn_flood(packet, ip_whitelist)
+    udp_flood(packet, ip_whitelist)
+    icmp_flood(packet, ip_whitelist)
+    ping_of_death(packet, ip_whitelist)
