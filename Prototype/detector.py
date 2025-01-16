@@ -38,6 +38,10 @@ def write_to_log(packet):
     print(F"Packet info written to: {filename}\n")
 
 
+def ip_whitelisting(ip_address):
+    pass
+
+
 # Detects SYN Flood Attack based on given timeframe and threshold
 def syn_flood(packet):
     if packet.haslayer('TCP') and packet.haslayer('IP'):
