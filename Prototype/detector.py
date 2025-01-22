@@ -130,8 +130,27 @@ def type_flood(packet, ip_whitelist):
     ping_of_death(packet, ip_whitelist)
 
 
-def type_scan(packet, ip_whitelist):
+def tcp_connect_scan(packet, ip_whitelist):
     pass
+
+
+def syn_scan(packet, ip_whitelist):
+    pass
+
+
+def xmas_scan(packet, ip_whitelist):
+    pass
+
+
+def null_scan(packet, ip_whitelist):
+    pass
+
+
+def type_scan(packet, ip_whitelist):
+    tcp_connect_scan(packet, ip_whitelist)
+    syn_scan(packet, ip_whitelist)
+    xmas_scan(packet, ip_whitelist)
+    null_scan(packet, ip_whitelist)
 
 
 def type_other(packet, ip_whitelist):
