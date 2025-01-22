@@ -123,10 +123,26 @@ def ping_of_death(packet, ip_whitelist):
             write_to_log(packet)
 
 
-# Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
-def attack_analyzer(packet, ip_address=None):
-    ip_whitelist = ip_whitelisting(ip_address)
+def type_flood(packet, ip_whitelist):
     syn_flood(packet, ip_whitelist)
     udp_flood(packet, ip_whitelist)
     icmp_flood(packet, ip_whitelist)
     ping_of_death(packet, ip_whitelist)
+
+
+def type_scan(packet, ip_whitelist):
+    pass
+
+
+def type_other(packet, ip_whitelist):
+    pass
+
+
+# Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
+def attack_analyzer(packet, ip_address=None):
+    ip_whitelist = ip_whitelisting(ip_address)
+    
+    type_flood(packet, ip_whitelist)
+    type_scan(packet, ip_whitelist)
+    type_other(packet, ip_whitelist)
+    
