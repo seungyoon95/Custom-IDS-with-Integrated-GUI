@@ -121,9 +121,18 @@ def ping_of_death_pcap(file_name):
                 print(f"Potential Ping of Death detected from: {ip_layer.src}")
 
 
-def run_pcap_analyzer(filename): 
+def flood_pcap(filename):
     syn_flood_pcap(filename, constants.TIMEFRAME, constants.FLOOD_THRESHOLD)
     udp_flood_pcap(filename, constants.TIMEFRAME, constants.FLOOD_THRESHOLD)
     icmp_flood_pcap(filename, constants.TIMEFRAME, constants.FLOOD_THRESHOLD)
     ping_of_death_pcap(filename)
     print("\n")
+
+
+def scan_pcap(filename):
+    pass
+
+
+def run_pcap_analyzer(filename): 
+    flood_pcap(filename)
+    scan_pcap(filename)
