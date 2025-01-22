@@ -149,7 +149,7 @@ def tcp_connect_scan(packet, ip_whitelist):
                 if current_time - timestamp <= constants.TIMEFRAME
             }
 
-            if len(completed_handshake[source_ip]) > constants.SCAN_THRESHOLD:
+            if len(completed_handshake[source_ip]) > constants.SCAN_THRESHOLD and source_ip not in ip_whitelist:
                 print(f"TCP Connect Scan detected from {source_ip}. "
                       f"Scanned ports: {list(completed_handshake[source_ip].keys())}")
 
@@ -163,7 +163,7 @@ def syn_scan(packet, ip_whitelist):
             
             syn_scans[key] = syn_scans.get(key, 0) + 1
             
-            if syn_scans[key] > constants.SCAN_THRESHOLD:
+            if syn_scans[key] > constants.SCAN_THRESHOLD and source_ip not in ip_whitelist:
                 print(f"SYN Scan detected: {source_ip} → Port {dst_port}")
 
 
@@ -171,8 +171,8 @@ def syn_scan(packet, ip_whitelist):
 def xmas_scan(packet, ip_whitelist):
     if packet.haslayer('TCP'):
         tcp_flags = packet['TCP'].flags
-        if 'F' in tcp_flags and 'P' in tcp_flags and 'U' in tcp_flags:
-            source_ip = packet['IP'].src
+        source_ip = packet['IP'].src
+        if 'F' in tcp_flags and 'P' in tcp_flags and 'U' in tcp_flags and source_ip not in ip_whitelist:
             dst_port = packet['TCP'].dport
             print(f"Xmas Scan detected: {source_ip} → Port {dst_port}")
 
@@ -181,8 +181,8 @@ def xmas_scan(packet, ip_whitelist):
 def null_scan(packet, ip_whitelist):
     if packet.haslayer('TCP'):
         tcp_flags = packet['TCP'].flags
-        if tcp_flags == 0:  # No flags set
-            source_ip = packet['IP'].src
+        source_ip = packet['IP'].src
+        if tcp_flags == 0 and source_ip not in ip_whitelist:
             dst_port = packet['TCP'].dport
             print(f"Null Scan detected: {source_ip} → Port {dst_port}")
 
