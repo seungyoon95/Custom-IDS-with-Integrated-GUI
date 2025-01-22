@@ -122,8 +122,8 @@ def ping_of_death_pcap(file_name):
 
 
 def run_pcap_analyzer(filename): 
-    syn_flood_pcap(filename, constants.TIMEFRAME, constants.THRESHOLD)
-    udp_flood_pcap(filename, constants.TIMEFRAME, constants.THRESHOLD)
-    icmp_flood_pcap(filename, constants.TIMEFRAME, constants.THRESHOLD)
+    syn_flood_pcap(filename, constants.TIMEFRAME, constants.FLOOD_THRESHOLD)
+    udp_flood_pcap(filename, constants.TIMEFRAME, constants.FLOOD_THRESHOLD)
+    icmp_flood_pcap(filename, constants.TIMEFRAME, constants.FLOOD_THRESHOLD)
     ping_of_death_pcap(filename)
     print("\n")
