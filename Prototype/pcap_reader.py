@@ -15,7 +15,7 @@ def ip_whitelisting(ip_address):
     return ip_whitelist
 
 
-def syn_flood_pcap(file_name, timeframe, threshold):
+def syn_flood_pcap(file_name, timeframe, threshold, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter='tcp.flags.syn == 1 and tcp.flags.ack == 0')
     syn_count = defaultdict(list)
 
@@ -50,7 +50,7 @@ def syn_flood_pcap(file_name, timeframe, threshold):
     capture.close()
 
 
-def udp_flood_pcap(file_name, timeframe, threshold):
+def udp_flood_pcap(file_name, timeframe, threshold, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter='udp')
     udp_count = defaultdict(list)
 
@@ -85,7 +85,7 @@ def udp_flood_pcap(file_name, timeframe, threshold):
     capture.close()
 
 
-def icmp_flood_pcap(file_name, timeframe, threshold):
+def icmp_flood_pcap(file_name, timeframe, threshold, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter='icmp.type == 8')
     icmp_count = defaultdict(list)
 
@@ -120,7 +120,7 @@ def icmp_flood_pcap(file_name, timeframe, threshold):
     capture.close()
 
 
-def ping_of_death_pcap(file_name):
+def ping_of_death_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
 
     attacker_ip = set()
