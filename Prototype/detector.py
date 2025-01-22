@@ -64,7 +64,7 @@ def syn_flood(packet, ip_whitelist):
                 while pending_handshake[(source_ip, dst_ip)] and current_time - pending_handshake[(source_ip, dst_ip)][0] > constants.TIMEFRAME:
                     pending_handshake[(source_ip, dst_ip)].popleft()
 
-                if len(syn_count[source_ip]) > constants.THRESHOLD or len(pending_handshake[(source_ip, dst_ip)]) > constants.MAX_PENDING:
+                if len(syn_count[source_ip]) > constants.FLOOD_THRESHOLD or len(pending_handshake[(source_ip, dst_ip)]) > constants.MAX_PENDING:
                     if source_ip != local_ip:
                         print(f"***ALERT*** SYN Flood Attack detected from: {source_ip}")
                         write_to_log(packet)
@@ -89,7 +89,7 @@ def udp_flood(packet, ip_whitelist):
                 udp_count[source_ip].append(current_time)
                 udp_count[source_ip] = [t for t in udp_count[source_ip] if current_time - t < constants.TIMEFRAME]
 
-            if len(udp_count[source_ip]) > constants.THRESHOLD:
+            if len(udp_count[source_ip]) > constants.FLOOD_THRESHOLD:
                 if source_ip != local_ip:
                     print(f"***ALERT*** UDP Flood Attack detected from {source_ip}")
                     write_to_log(packet)
@@ -106,7 +106,7 @@ def icmp_flood(packet, ip_whitelist):
             icmp_count[source_ip].append(current_time)
             icmp_count[source_ip] = [t for t in icmp_count[source_ip] if current_time - t < constants.TIMEFRAME]
 
-            if len(icmp_count[source_ip]) > constants.THRESHOLD:
+            if len(icmp_count[source_ip]) > constants.FLOOD_THRESHOLD:
                 if (source_ip != local_ip and source_ip not in ip_whitelist):
                     print(f"***ALERT*** ICMP Flood Attack detected from: {source_ip}")
                     write_to_log(packet)

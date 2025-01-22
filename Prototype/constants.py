@@ -1,4 +1,6 @@
-THRESHOLD = 100     # number of packets from single source before identifying as DOS attack
+FLOOD_THRESHOLD = 100     # number of packets from single source before identifying as DOS attack
 TIMEFRAME = 1       # seconds
 
 MAX_PENDING = 50
+
+SCAN_THRESHOLD = 10
