@@ -15,6 +15,9 @@ icmp_count = defaultdict(list)
 
 pending_handshake = defaultdict(deque)
 
+completed_handshake = defaultdict(dict)
+syn_scans = {}
+
 ip_whitelist = set()
 
 # Host IP address
@@ -78,7 +81,7 @@ def syn_flood(packet, ip_whitelist):
 # Detects UDP Flood Attack based on given timeframe and threshold
 def udp_flood(packet, ip_whitelist):
     if packet.haslayer('UDP') and packet.haslayer('IP'):
-        whitelisted_port = [53, 123]
+        whitelisted_port = [53, 123, 56976]
 
         source_ip = packet['IP'].src
         dst_port = packet['IP'].dport
@@ -131,19 +134,58 @@ def type_flood(packet, ip_whitelist):
 
 
 def tcp_connect_scan(packet, ip_whitelist):
-    pass
+    if packet.haslayer('TCP') and packet.haslayer('IP'):
+        source_ip = packet['IP'].src
+        tcp_layer = packet['TCP']
+        dst_port = tcp_layer.dport
+        current_time = time.time()
+
+        if tcp_layer.flags == "A":
+            completed_handshake[source_ip][dst_port] = current_time
+
+            completed_handshake[source_ip] = {
+                port: timestamp
+                for port, timestamp in completed_handshake[source_ip].items()
+                if current_time - timestamp <= constants.TIMEFRAME
+            }
+
+            if len(completed_handshake[source_ip]) > constants.SCAN_THRESHOLD:
+                print(f"TCP Connect Scan detected from {source_ip}. "
+                      f"Scanned ports: {list(completed_handshake[source_ip].keys())}")
 
 
 def syn_scan(packet, ip_whitelist):
-    pass
+    if packet.haslayer('TCP'):
+        if packet['TCP'].flags == "S":
+            source_ip = packet['IP'].src
+            dst_port = packet['TCP'].dport
+            key = (source_ip, dst_port)
+            
+            syn_scans[key] = syn_scans.get(key, 0) + 1
+            
+            if syn_scans[key] > constants.SCAN_THRESHOLD:
+                print(f"SYN Scan detected: {source_ip} → Port {dst_port}")
+
 
 
 def xmas_scan(packet, ip_whitelist):
-    pass
+    if packet.haslayer('TCP'):
+        tcp_flags = packet['TCP'].flags
+        if 'F' in tcp_flags and 'P' in tcp_flags and 'U' in tcp_flags:
+            source_ip = packet['IP'].src
+            dst_port = packet['TCP'].dport
+            print(f"Xmas Scan detected: {source_ip} → Port {dst_port}")
+
 
 
 def null_scan(packet, ip_whitelist):
-    pass
+    if packet.haslayer('TCP'):
+        tcp_flags = packet['TCP'].flags
+        if tcp_flags == 0:  # No flags set
+            source_ip = packet['IP'].src
+            dst_port = packet['TCP'].dport
+            print(f"Null Scan detected: {source_ip} → Port {dst_port}")
+
 
 
 def type_scan(packet, ip_whitelist):
