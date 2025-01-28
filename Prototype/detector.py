@@ -195,8 +195,23 @@ def type_scan(packet, ip_whitelist):
     null_scan(packet, ip_whitelist)
 
 
-def type_other(packet, ip_whitelist):
+def dns_arp_spoof(packet, ip_whitelist):
     pass
+
+def ssh_brute_force(packet, ip_whitelist):
+    pass
+
+def command_injection(packet, ip_whitelist):
+    pass
+
+def sql_injection(packet, ip_whitelist):
+    pass
+
+def type_other(packet, ip_whitelist):
+    dns_arp_spoof(packet, ip_whitelist)
+    ssh_brute_force(packet, ip_whitelist)
+    command_injection(packet, ip_whitelist)
+    sql_injection(packet, ip_whitelist)
 
 
 # Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
