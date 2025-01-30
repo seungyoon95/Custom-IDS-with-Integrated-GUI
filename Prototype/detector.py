@@ -9,8 +9,10 @@ from collections import defaultdict, deque
 
 # Dictionaries to hold packet counts from 
 syn_count = defaultdict(list)
-udp_count = defaultdict(list)
+udp_count = defaultdict(lambda: {"sent": [], "received": []})
 icmp_count = defaultdict(list)
+
+
 
 pending_handshake = defaultdict(deque)
 
@@ -26,7 +28,7 @@ local_ip = socket.gethostbyname(socket.gethostname())
 # Writes packet info to a log file
 def write_to_log(attack_type, packet):
     print("\n===========================================")
-    print(current_date)
+    print(datetime.now())
     print(f"Attack Type: {attack_type}")
     print(f"Source IP and Port: {packet['IP'].src}:{packet['IP'].sport}")
     print(f"Destination IP and Port: {packet['IP'].dst}:{packet['IP'].dport}")
@@ -43,11 +45,11 @@ def write_to_log(attack_type, packet):
         if os.stat(filename).st_size != 0:
             f.write('\n')
         # f.write(packet.summary())
-        f.write("===========================================")
-        f.write(current_date)
-        f.write(f"Attack Type: {attack_type}")
-        f.write(f"Source IP and Port: {packet['IP'].src}:{packet['IP'].sport}")
-        f.write(f"Destination IP and Port: {packet['IP'].dst}:{packet['IP'].dport}")
+        f.write("===========================================\n")
+        f.write(str(datetime.now()))
+        f.write(f"\nAttack Type: {attack_type}")
+        f.write(f"\nSource IP and Port: {packet['IP'].src}:{packet['IP'].sport}")
+        f.write(f"\nDestination IP and Port: {packet['IP'].dst}:{packet['IP'].dport}")
     print(F"Packet info written to: {filename}\n")
 
 
@@ -90,18 +92,30 @@ def syn_flood(packet, ip_whitelist):
 # Detects UDP Flood Attack based on given timeframe and threshold
 def udp_flood(packet, ip_whitelist):
     if packet.haslayer('UDP') and packet.haslayer('IP'):
-        whitelisted_port = [53, 123, 56976]
+        whitelisted_port = [53, 123, 443, 56976]
 
         source_ip = packet['IP'].src
+        dst_ip = packet['IP'].dst
         dst_port = packet['IP'].dport
         current_time = time.time()
 
-        if source_ip not in ip_whitelist:
-            if (dst_port not in whitelisted_port):
-                udp_count[source_ip].append(current_time)
-                udp_count[source_ip] = [t for t in udp_count[source_ip] if current_time - t < constants.TIMEFRAME]
+        if source_ip not in udp_count:
+            udp_count[source_ip] = {"sent": [], "received": []}
+        if dst_ip not in udp_count:
+            udp_count[dst_ip] = {"sent": [], "received": []}
 
-            if len(udp_count[source_ip]) > constants.FLOOD_THRESHOLD:
+        udp_count[source_ip]["sent"] = [t for t in udp_count[source_ip]["sent"] if current_time - t < constants.TIMEFRAME]
+        udp_count[dst_ip]["received"] = [t for t in udp_count[dst_ip]["received"] if current_time - t < constants.TIMEFRAME]
+
+        if source_ip not in ip_whitelist and dst_port not in whitelisted_port:
+            udp_count[source_ip]["sent"].append(current_time)
+
+            # Determine incoming/outgoing packet ratio
+            sent_count = len(udp_count[source_ip]["sent"])
+            received_count = len(udp_count[source_ip]["received"])  
+
+            # Trigger an alert if outgoing packets significantly exceed incoming responses
+            if sent_count > constants.FLOOD_THRESHOLD and (received_count == 0 or sent_count / max(received_count, 1) > constants.FLOOD_RATIO_THRESHOLD):
                 if source_ip != local_ip:
                     write_to_log("UDP FLOOD", packet)
 
@@ -160,6 +174,8 @@ def tcp_connect_scan(packet, ip_whitelist):
 
 
 def syn_scan(packet, ip_whitelist):
+    whitelisted_port = [53, 80, 443]
+
     if packet.haslayer('TCP'):
         if packet['TCP'].flags == "S":
             source_ip = packet['IP'].src
@@ -168,7 +184,7 @@ def syn_scan(packet, ip_whitelist):
             
             syn_scans[key] = syn_scans.get(key, 0) + 1
             
-            if syn_scans[key] > constants.SCAN_THRESHOLD and source_ip not in ip_whitelist:
+            if syn_scans[key] > constants.SCAN_THRESHOLD and source_ip not in ip_whitelist and dst_port not in whitelisted_port:
                 write_to_log("SYN SCAN", packet)
 
 
