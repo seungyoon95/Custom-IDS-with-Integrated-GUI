@@ -37,7 +37,12 @@ def write_to_log(attack_type, packet):
     with open(filename, 'a') as f:
         if os.stat(filename).st_size != 0:
             f.write('\n')
-        f.write(packet.summary())
+        # f.write(packet.summary())
+        f.write("===========================================")
+        f.write(time.time())
+        f.write(f"Attack Type: {attack_type}")
+        f.write(f"Source IP and Port: {packet['IP'].src}:{packet['IP'].sport}")
+        f.write(f"Destination IP and Port: {packet['IP'].dst}:{packet['IP'].dport}")
     print(F"Packet info written to: {filename}\n")
 
 
