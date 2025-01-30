@@ -2,6 +2,8 @@ import constants
 import pyshark
 from collections import defaultdict
 from datetime import timedelta
+import time
+import re
 
 
 ip_whitelist = set()
@@ -141,14 +143,6 @@ def ping_of_death_pcap(file_name, ip_whitelist):
         print(f"No Ping of Death detected from {file_name}")
 
 
-def flood_pcap(file_name, ip_whitelist):
-    syn_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
-    udp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
-    icmp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
-    ping_of_death_pcap(file_name, ip_whitelist)
-    print("\n")
-
-
 def tcp_connect_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp")
     handshake_tracker = defaultdict(set)
@@ -242,15 +236,165 @@ def null_scan_pcap(file_name, ip_whitelist):
         print(f"No Null scan detected from {file_name}")
 
 
-def scan_pcap(file_name, ip_whitelist):
+def dns_arp_spoof_pcap(file_name, ip_whitelist):
+    capture = pyshark.FileCapture(file_name)
+
+    attacker_ip = set()
+    dns_records = {}
+    arp_table = {}
+
+    for packet in capture:
+        # DNS Spoofing
+        if 'DNS' in packet:
+            try:
+                domain = packet.dns.qry_name
+                resolved_ip = packet.dns.a
+                current_time = time.time()
+
+                if domain in dns_records:
+                    prev_ip, timestamp, change_count = dns_records[domain]
+
+                    if prev_ip != resolved_ip and (current_time - timestamp) <= constants.TIMEFRAME:
+                        if change_count < 10:
+                            dns_records[domain] = (resolved_ip, current_time, change_count + 1)
+                        else:
+                            print(f"[ALERT] DNS Spoofing Detected! {domain} changed from {prev_ip} to {resolved_ip} within {constants.TIMEFRAME} seconds")
+                            attacker_ip.add(packet.ip.src)
+                else:
+                    dns_records[domain] = (resolved_ip, current_time, 1)
+            except AttributeError:
+                pass  # Ignore if DNS resolution doesn't exist in the packet (e.g., no A record)
+
+        # ARP Spoofing
+        if 'ARP' in packet:
+            try:
+                src_ip = packet.arp.psrc
+                src_mac = packet.arp.hwsrc
+                if src_ip in arp_table and arp_table[src_ip] != src_mac:
+                    print(f"[ALERT] ARP Spoofing detected! IP: {src_ip}, MAC: {src_mac}")
+                    attacker_ip.add(src_ip)
+            except AttributeError:
+                pass  
+
+    if attacker_ip:
+        print(f"Potential DNS/ARP Spoofing detected from: {attacker_ip}")
+    else:
+        print(f"No DNS/ARP Spoofing detected from {file_name}")
+
+
+def ssh_brute_force_pcap(file_name, ip_whitelist):
+    capture = pyshark.FileCapture(file_name)
+
+    attacker_ip = set()
+    ssh_count = {}
+
+    for packet in capture:
+         if 'TCP' in packet and hasattr(packet, 'tcp') and hasattr(packet.tcp, 'dport'):
+            try:
+                # Ensure the dport is 22 (SSH port)
+                if int(packet.tcp.dport) == 22:
+                    src_ip = packet.ip.src
+
+                    if src_ip not in ip_whitelist:
+                        ssh_count[src_ip] = ssh_count.get(src_ip, 0) + 1
+                        if ssh_count[src_ip] > constants.SSH_THRESHOLD:
+                            print(f"[ALERT] SSH Brute Force detected from {src_ip}")
+                            attacker_ip.add(src_ip)
+
+            except AttributeError:
+                # If any of the expected attributes are missing, we skip this packet
+                pass
+
+    if attacker_ip:
+        print(f"Potential SSH Brute Force attack detected from: {attacker_ip}")
+    else:
+        print(f"No SSH Brute Force detected from {file_name}")
+
+
+def command_injection_pcap(file_name, ip_whitelist):
+    capture = pyshark.FileCapture(file_name)
+
+    attacker_ip = set()
+
+    whitelisted_ports = [80, 443]
+
+    for packet in capture:
+        if 'TCP' in packet and 'Raw' in packet and int(packet.ip.src) not in ip_whitelist:
+            if int(packet.tcp.dport) not in whitelisted_ports:
+                payload = packet['Raw'].load.decode(errors="ignore")
+
+                patterns = [
+                    r"(cat\s+/etc/passwd)",
+                    r"(rm\s+-rf\s+/)",
+                    r"(cp\s+\S+\s+/tmp/|cp\s+/etc/\S+)",
+                    r"(mv\s+\S+\s+/tmp/|mv\s+/etc/\S+)",
+                    r"(chmod\s+[0-7]{3}\s+\S+)",
+                    r"(ifconfig\s+)",
+                    r"(iptables\s+)",
+                    r"(ps\s+aux)",
+                    r"(kill\s+\d+)",
+                    r"(top\s+-u\s+\S+)",
+                    r"(uname\s+-a)",
+                    r"(uptime\s+)",
+                    r"(echo\s+\S+)",
+                    r"(sleep\s+\d+)",
+                ]
+
+                for pattern in patterns:
+                    if re.search(pattern, payload, re.IGNORECASE):
+                        print(f"[ALERT] Command Injection Detected in live traffic: {pattern}")
+                        attacker_ip.add(packet.ip.src)
+
+    if attacker_ip:
+        print(f"Potential Command Injection detected from: {attacker_ip}")
+    else:
+        print(f"No Command Injection detected from {file_name}")
+
+
+def sql_injection_pcap(file_name, ip_whitelist):
+    capture = pyshark.FileCapture(file_name)
+
+    attacker_ip = set()
+
+    for packet in capture:
+        if 'TCP' in packet and 'Raw' in packet and int(packet.ip.src) not in ip_whitelist:
+            payload = packet['Raw'].load.decode(errors="ignore")
+            patterns = [
+                r"' OR '1'='1",
+                r'UNION SELECT',
+                r'; DROP TABLE',
+                r'" OR "1"="1',
+                r"' OR 1=1 --",
+                r"admin' --",
+            ]
+            for pattern in patterns:
+                if re.search(pattern, payload, re.IGNORECASE):
+                    print(f"[ALERT] SQL Injection Detected in live traffic: {pattern}")
+                    attacker_ip.add(packet.ip.src)
+
+    if attacker_ip:
+        print(f"Potential SQL Injection detected from: {attacker_ip}")
+    else:
+        print(f"No SQL Injection detected from {file_name}")
+
+
+def run_pcap_analyzer(file_name, ip_address=None):
+    ip_whitelist = ip_whitelisting(ip_address)
+    
+    syn_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
+    udp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
+    icmp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
+    ping_of_death_pcap(file_name, ip_whitelist)
+    print("\n")
+
     tcp_connect_scan_pcap(file_name, ip_whitelist)
     syn_scan_pcap(file_name, ip_whitelist)
     xmas_scan_pcap(file_name, ip_whitelist)
     null_scan_pcap(file_name, ip_whitelist)
     print("\n")
 
-
-def run_pcap_analyzer(file_name, ip_address=None):
-    ip_whitelist = ip_whitelisting(ip_address)
-    flood_pcap(file_name, ip_whitelist)
-    scan_pcap(file_name, ip_whitelist)
+    # dns_arp_spoof_pcap(file_name, ip_whitelist)
+    # ssh_brute_force_pcap(file_name, ip_whitelist)
+    # command_injection_pcap(file_name, ip_whitelist)
+    # sql_injection_pcap(file_name, ip_whitelist)
+    

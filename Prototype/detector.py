@@ -226,16 +226,20 @@ def dns_arp_spoof(packet, ip_whitelist):
         resolved_ip = packet[DNSRR].rdata
         current_time = time.time()
 
-        # Check if domain is resolving to a different IP within the time window
         if domain in dns_records:
-            prev_ip, timestamp = dns_records[domain]
+            prev_ip, timestamp, change_count = dns_records[domain]
 
-            # If within the time window and the IP has changed, trigger an alert
+            # If the IP has changed and the time window is exceeded, check for spoofing
             if prev_ip != resolved_ip and (current_time - timestamp) <= constants.TIMEFRAME:
-                print(f"[ALERT] DNS Spoofing Detected! {domain} changed from {prev_ip} to {resolved_ip} within {constants.TIMEFRAME} seconds")
+                # Consider allowing a certain number of changes before alerting
+                if change_count < 10:
+                    dns_records[domain] = (resolved_ip, current_time, change_count + 1)
+                else:
+                    print(f"[ALERT] DNS Spoofing Detected! {domain} changed from {prev_ip} to {resolved_ip} within {constants.TIMEFRAME} seconds")
 
-        # Update DNS records with the latest resolution and timestamp
-        dns_records[domain] = (resolved_ip, current_time)
+        # If it's the first time seeing this domain, add it to the records
+        else:
+            dns_records[domain] = (resolved_ip, current_time, 1)
 
 
 def ssh_brute_force(packet, ip_whitelist):
