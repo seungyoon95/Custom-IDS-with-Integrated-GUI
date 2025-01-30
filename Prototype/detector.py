@@ -305,9 +305,11 @@ def type_other(packet, ip_whitelist):
 
 
 # Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
-def attack_analyzer(packet, ip_address=None):
-    ip_whitelist = ip_whitelisting(ip_address)
+def attack_analyzer(packet):
+    # ip_whitelist = ip_whitelisting(ip_address)
     
+    ip_whitelist = set()
+
     type_flood(packet, ip_whitelist)
     type_scan(packet, ip_whitelist)
     type_other(packet, ip_whitelist)

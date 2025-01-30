@@ -385,13 +385,13 @@ def run_pcap_analyzer(file_name, ip_address=None):
     udp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
     icmp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
     ping_of_death_pcap(file_name, ip_whitelist)
-    print("\n")
+    print("")
 
     tcp_connect_scan_pcap(file_name, ip_whitelist)
     syn_scan_pcap(file_name, ip_whitelist)
     xmas_scan_pcap(file_name, ip_whitelist)
     null_scan_pcap(file_name, ip_whitelist)
-    print("\n")
+    # print("")
 
     # dns_arp_spoof_pcap(file_name, ip_whitelist)
     # ssh_brute_force_pcap(file_name, ip_whitelist)
