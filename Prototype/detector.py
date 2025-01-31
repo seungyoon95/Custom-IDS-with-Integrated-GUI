@@ -65,8 +65,7 @@ def write_to_log(attack_type, packet, protocol=None):
         if protocol == "UDP":
             f.write(f"\nSource IP and Port: {packet[IP].src}:{packet[UDP].sport}")
             f.write(f"\nDestination IP and Port: {packet[IP].dst}:{packet[UDP].dport}")
-    print(F"Packet info written to: {filename}\n")
-
+    
 
 def ip_whitelisting(ip_address):
     if ip_address is not None and ip_address not in ip_whitelist:
@@ -263,20 +262,21 @@ def command_injection(packet, ip_whitelist):
         payload = packet[Raw].load.decode(errors="ignore")
 
         patterns = [
-            r"(cat\s+/etc/passwd)",  # Accessing sensitive files
-            r"(rm\s+-rf\s+/)",  # Destructive commands
-            r"(cp\s+\S+\s+/tmp/|cp\s+/etc/\S+)",  # cp to/from suspicious directories
-            r"(mv\s+\S+\s+/tmp/|mv\s+/etc/\S+)",  # mv to/from suspicious directories
-            r"(chmod\s+[0-7]{3}\s+\S+)",  # Changing file permissions
-            r"(ifconfig\s+)",  # Network configuration
-            r"(iptables\s+)",  # Firewall manipulation
-            r"(ps\s+aux)",  # List running processes
-            r"(kill\s+\d+)",  # Terminating processes
-            r"(top\s+-u\s+\S+)",  # Monitoring specific user processes
-            r"(uname\s+-a)",  # System information
-            r"(uptime\s+)",  # System uptime
-            r"(echo\s+\S+)",  # Echo command (often used to inject output)
-            r"(sleep\s+\d+)",  # Sleep command (delays execution, often used in timing attacks)
+            r"(cat\s+/etc/passwd)",
+            r"(rm\s+-rf\s+/)",
+            r"(cp\s+\S+\s+/tmp/|cp\s+/etc/\S+)",
+            r"(mv\s+\S+\s+/tmp/|mv\s+/etc/\S+)",
+            r"(chmod\s+[0-7]{3}\s+\S+)",
+            r"(ifconfig\s+)",
+            r"(iptables\s+)",
+            r"(ps\s+aux)",
+            r"(kill\s+\d+)",
+            r"(top\s+-u\s+\S+)",
+            r"(uname\s+-a)",
+            r"(uptime\s+)",
+            r"(echo\s+[^\n]*\s*\|\s*.*)",
+            r"(echo\s+[^\n]*\s+>\s*\S+)",
+            r"(sleep\s+\d+)",
         ]
 
         for pattern in patterns:
