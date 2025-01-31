@@ -1,5 +1,8 @@
 import constants
+
+from scapy.layers.inet import IP
 import pyshark
+
 from collections import defaultdict
 from datetime import timedelta
 import time
@@ -125,6 +128,7 @@ def ping_of_death_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
 
     attacker_ip = set()
+    fragments = {}
 
     for packet in capture:
         if hasattr(packet, 'ip'):
@@ -132,9 +136,29 @@ def ping_of_death_pcap(file_name, ip_whitelist):
             src_ip = ip_layer.src
             size = int(ip_layer.len)
 
-            if size > 65535 and src_ip not in ip_whitelist:
-                attacker_ip.add(ip_layer.src)
-                print(f"Potential Ping of Death detected from: {ip_layer.src}")
+            # Check if packet is fragmented
+            if hasattr(packet.ip, 'flags') and packet.ip.flags == '1':
+                fragment_id = packet.ip.id
+                if fragment_id not in fragments:
+                    fragments[fragment_id] = []
+                fragments[fragment_id].append(packet)
+            else:
+                if size > 65535 and src_ip not in ip_whitelist:
+                    attacker_ip.add(src_ip)
+                    print(f"Potential Ping of Death detected from: {src_ip}")
+
+    for fragment_id, fragment_list in fragments.items():
+        reassembled_packet = fragment_list[0]
+        for frag in fragment_list[1:]:
+            reassembled_packet = reassembled_packet / frag.payload
+
+        
+        total_size = len(reassembled_packet)
+        if total_size > 65535:
+            src_ip = reassembled_packet[IP].src
+            if src_ip not in ip_whitelist:
+                attacker_ip.add(src_ip)
+                print(f"Potential Ping of Death detected from: {src_ip}")
 
     if attacker_ip:
         print(f"Potential Ping of Death detected from: {attacker_ip}")

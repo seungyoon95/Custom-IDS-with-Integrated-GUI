@@ -30,7 +30,7 @@ ip_whitelist = set()
 
 # Host IP address
 local_ip = socket.gethostbyname(socket.gethostname())
-print(local_ip)
+
 
 # Writes packet info to a log file
 def write_to_log(attack_type, packet, protocol=None):
@@ -143,9 +143,17 @@ def ping_of_death(packet, ip_whitelist):
     if packet.haslayer(IP):
         ip_layer = packet[IP]
         source_ip = ip_layer.src
-        size = ip_layer.len
 
-        if size > 65535  and source_ip not in ip_whitelist:
+        # Check if the packet is fragmented
+        if ip_layer.flags == 1:
+            reassembled_packet = packet.payload
+            while reassembled_packet.haslayer(IP) and reassembled_packet[IP].flags == 1:
+                reassembled_packet = reassembled_packet.payload
+            total_size = len(reassembled_packet)
+        else:
+            total_size = len(packet)
+
+        if total_size > 65535 and source_ip not in ip_whitelist:
             write_to_log("PING OF DEATH", packet, "ICMP")
 
 

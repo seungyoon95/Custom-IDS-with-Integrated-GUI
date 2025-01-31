@@ -8,7 +8,6 @@ def icmp_flood(target_ip, num_packets):
 
 
 target_ip = "192.168.56.1"
-target_port = 10002
 num_packets = 1000
 
 icmp_flood(target_ip, num_packets)
