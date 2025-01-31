@@ -17,20 +17,26 @@ syn_count = defaultdict(list)
 udp_count = defaultdict(list)
 icmp_count = defaultdict(list)
 
-arp_table = {}
-dns_records = {}
-ssh_count = {}
+# Keeping a list of IP addresses that already generated an alert about certain attack to avoid spamming
+syn_flood_alerted = set()
+udp_flood_alerted = set()
+icmp_flood_alerted = set()
+
+ping_of_death_alerted = set()
 
 pending_handshake = defaultdict(deque)
 
-completed_handshake = defaultdict(dict)
+completed_handshake = {}
 syn_scans = {}
+
+arp_table = {}
+dns_records = {}
+ssh_count = {}
 
 ip_whitelist = set()
 
 # Host IP address
 local_ip = socket.gethostbyname(socket.gethostname())
-
 
 # Writes packet info to a log file
 def write_to_log(attack_type, packet, protocol=None):
@@ -38,12 +44,21 @@ def write_to_log(attack_type, packet, protocol=None):
     print(datetime.now())
     print(f"Attack Type: {attack_type}")
 
-    if protocol == "TCP":
+    if protocol == "TCP" and type(protocol) != set:
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
     if protocol == "UDP":
         print(f"Source IP and Port: {packet[IP].src}:{packet[UDP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[UDP].dport}")
+    if protocol == "ICMP":
+        print(f"Source IP: {packet[IP].src}")
+        print(f"Destination IP: {packet[IP].dst}")
+    if type(protocol) == set or type(protocol) == list:
+        print(f"Source IP: {packet[IP].src}")
+        print(f"Destination IP: {packet[IP].dst}")
+        print(f"List of scanned ports: {protocol}")
+    
+    
 
     current_date = datetime.now().strftime('%Y-%m-%d')
 
@@ -60,12 +75,19 @@ def write_to_log(attack_type, packet, protocol=None):
         f.write("===========================================\n")
         f.write(str(datetime.now()))
         f.write(f"\nAttack Type: {attack_type}")
-        if protocol == "TCP":
+        if protocol == "TCP" and type(protocol) != set:
             f.write(f"\nSource IP and Port: {packet[IP].src}:{packet[TCP].sport}")
             f.write(f"\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
         if protocol == "UDP":
             f.write(f"\nSource IP and Port: {packet[IP].src}:{packet[UDP].sport}")
             f.write(f"\nDestination IP and Port: {packet[IP].dst}:{packet[UDP].dport}")
+        if protocol == "ICMP":
+            f.write(f"\nSource IP: {packet[IP].src}")
+            f.write(f"\nDestination IP: {packet[IP].dst}")
+        if type(protocol) == set or type(protocol) == list:
+            f.write(f"\nSource IP: {packet[IP].src}")
+            f.write(f"\nDestination IP: {packet[IP].dst}")
+            f.write(f"\nList of scanned ports: {protocol}")
     
 
 def ip_whitelisting(ip_address):
@@ -95,8 +117,9 @@ def syn_flood(packet, ip_whitelist):
                     pending_handshake[(source_ip, dst_ip)].popleft()
 
                 if len(syn_count[source_ip]) > constants.FLOOD_THRESHOLD or len(pending_handshake[(source_ip, dst_ip)]) > constants.MAX_PENDING:
-                    if source_ip != local_ip:
+                    if source_ip != local_ip and source_ip not in syn_flood_alerted:
                         write_to_log("SYN FLOOD", packet, "TCP")
+                        syn_flood_alerted.add(source_ip)
 
             elif packet[TCP].flags == 'A':
                 if (source_ip, dst_ip) in pending_handshake:
@@ -119,8 +142,9 @@ def udp_flood(packet, ip_whitelist):
 
         if source_ip not in ip_whitelist and src_port not in whitelisted_port and dst_port not in whitelisted_port:
             if len(udp_count[source_ip]) > constants.FLOOD_THRESHOLD:
-                if source_ip != local_ip:
+                if source_ip != local_ip and source_ip not in udp_flood_alerted:
                     write_to_log("UDP FLOOD", packet, "UDP")
+                    udp_flood_alerted.add(source_ip)
 
 
 # Detects ICMP Flood Attack based on given timeframe and threshold
@@ -135,8 +159,9 @@ def icmp_flood(packet, ip_whitelist):
             icmp_count[source_ip] = [t for t in icmp_count[source_ip] if current_time - t < constants.TIMEFRAME]
 
             if len(icmp_count[source_ip]) > constants.FLOOD_THRESHOLD:
-                if (source_ip != local_ip and source_ip not in ip_whitelist):
+                if source_ip != local_ip and source_ip not in ip_whitelist and source_ip not in icmp_flood_alerted:
                     write_to_log("ICMP FLOOD", packet, "ICMP")
+                    icmp_flood_alerted.add(source_ip)
 
 
 def ping_of_death(packet, ip_whitelist):
@@ -168,11 +193,13 @@ def tcp_connect_scan(packet, ip_whitelist):
     whitelisted_port = [53, 80, 443]
     if packet.haslayer(TCP) and packet.haslayer(IP):
         source_ip = packet[IP].src
-        src_port = packet[TCP].sport
         dst_port = packet[TCP].dport
         current_time = time.time()
 
         if packet[TCP].flags == "A":
+            if source_ip not in completed_handshake:
+                completed_handshake[source_ip] = {}
+
             completed_handshake[source_ip][dst_port] = current_time
 
             completed_handshake[source_ip] = {
@@ -181,26 +208,29 @@ def tcp_connect_scan(packet, ip_whitelist):
                 if current_time - timestamp <= constants.TIMEFRAME
             }
 
+            if source_ip in syn_scans:
+                syn_scans.pop(source_ip, None)
+
             if len(completed_handshake[source_ip]) > constants.SCAN_THRESHOLD:
-                if source_ip not in ip_whitelist and src_port not in whitelisted_port and dst_port not in whitelisted_port:
-                    write_to_log("TCP CONNECT SCAN", packet, "TCP")
+                if source_ip not in ip_whitelist and dst_port not in whitelisted_port:
+                    write_to_log("TCP CONNECT SCAN", packet, list(completed_handshake[source_ip].keys()))
 
 
 def syn_scan(packet, ip_whitelist):
     whitelisted_port = [53, 80, 443]
 
-    if packet.haslayer(TCP):
-        if packet[TCP].flags == "S":
+    if packet.haslayer(TCP) and packet[TCP].flags == "S":
             source_ip = packet[IP].src
-            src_port = packet[TCP].dport
             dst_port = packet[TCP].dport
-            key = (source_ip, dst_port)
-            
-            syn_scans[key] = syn_scans.get(key, 0) + 1
-            
-            if syn_scans[key] > constants.SCAN_THRESHOLD:
-                if source_ip not in ip_whitelist and src_port not in whitelisted_port and dst_port not in whitelisted_port:
-                    write_to_log("SYN SCAN", packet, "TCP")
+                       
+            if source_ip not in syn_scans:
+                syn_scans[source_ip] = set()
+
+            syn_scans[source_ip].add(dst_port)
+
+            if len(syn_scans[source_ip]) > constants.SCAN_THRESHOLD:
+                if source_ip not in ip_whitelist and dst_port not in whitelisted_port:
+                    write_to_log("SYN SCAN", packet, syn_scans[source_ip])
 
 
 def xmas_scan(packet, ip_whitelist):
@@ -208,7 +238,7 @@ def xmas_scan(packet, ip_whitelist):
         tcp_flags = packet[TCP].flags
         source_ip = packet[IP].src
         if 'F' in tcp_flags and 'P' in tcp_flags and 'U' in tcp_flags and source_ip not in ip_whitelist:
-            write_to_log("XMAS SCAN", packet, TCP)
+            write_to_log("XMAS SCAN", packet, "TCP")
 
 
 def null_scan(packet, ip_whitelist):
@@ -307,7 +337,7 @@ def sql_injection(packet, ip_whitelist):
         ]
         for pattern in patterns:
             if re.search(pattern, payload, re.IGNORECASE):
-                print(f"[ALERT] Command Injection Detected in live traffic: {pattern}")
+                print(f"[ALERT] SQL Injection Detected in live traffic: {pattern}")
 
 
 def type_other(packet, ip_whitelist):

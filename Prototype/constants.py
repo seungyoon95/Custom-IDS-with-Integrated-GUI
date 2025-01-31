@@ -1,5 +1,5 @@
 FLOOD_THRESHOLD = 500     # number of packets from single source before identifying as DOS attack
-SCAN_THRESHOLD = 10
+SCAN_THRESHOLD = 5
 
 MAX_PENDING = 50
 
