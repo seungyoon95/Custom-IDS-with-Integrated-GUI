@@ -30,6 +30,7 @@ ip_whitelist = set()
 
 # Host IP address
 local_ip = socket.gethostbyname(socket.gethostname())
+print(local_ip)
 
 # Writes packet info to a log file
 def write_to_log(attack_type, packet, protocol=None):
