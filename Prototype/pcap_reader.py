@@ -8,7 +8,6 @@ import re
 
 ip_whitelist = set()
 
-
 def ip_whitelisting(ip_address):
     if ip_address is not None and ip_address not in ip_whitelist:
         ip_whitelist.add(ip_address)
@@ -142,6 +141,8 @@ def ping_of_death_pcap(file_name, ip_whitelist):
     else:
         print(f"No Ping of Death detected from {file_name}")
 
+    capture.close()
+
 
 def tcp_connect_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp")
@@ -175,6 +176,8 @@ def tcp_connect_scan_pcap(file_name, ip_whitelist):
     else:
         print(f"No TCP connect scan detected from {file_name}")
 
+    capture.close()
+
 
 def syn_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp.flags==0x02")
@@ -198,6 +201,8 @@ def syn_scan_pcap(file_name, ip_whitelist):
     else:
         print(f"No SYN scan detected from {file_name}")
 
+    capture.close()
+
 
 def xmas_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp.flags==0x29")
@@ -217,6 +222,8 @@ def xmas_scan_pcap(file_name, ip_whitelist):
     else:
         print(f"No Xmas scan detected from {file_name}")
 
+    capture.close()
+
 
 def null_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp.flags==0x00")
@@ -235,6 +242,8 @@ def null_scan_pcap(file_name, ip_whitelist):
     else:
         print(f"No Null scan detected from {file_name}")
 
+    capture.close()
+
 
 def dns_arp_spoof_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
@@ -244,7 +253,6 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
     arp_table = {}
 
     for packet in capture:
-        # DNS Spoofing
         if 'DNS' in packet:
             try:
                 domain = packet.dns.qry_name
@@ -263,9 +271,8 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
                 else:
                     dns_records[domain] = (resolved_ip, current_time, 1)
             except AttributeError:
-                pass  # Ignore if DNS resolution doesn't exist in the packet (e.g., no A record)
+                pass
 
-        # ARP Spoofing
         if 'ARP' in packet:
             try:
                 src_ip = packet.arp.psrc
@@ -281,6 +288,8 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
     else:
         print(f"No DNS/ARP Spoofing detected from {file_name}")
 
+    capture.close()
+
 
 def ssh_brute_force_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
@@ -291,7 +300,6 @@ def ssh_brute_force_pcap(file_name, ip_whitelist):
     for packet in capture:
          if 'TCP' in packet and hasattr(packet, 'tcp') and hasattr(packet.tcp, 'dport'):
             try:
-                # Ensure the dport is 22 (SSH port)
                 if int(packet.tcp.dport) == 22:
                     src_ip = packet.ip.src
 
@@ -302,13 +310,14 @@ def ssh_brute_force_pcap(file_name, ip_whitelist):
                             attacker_ip.add(src_ip)
 
             except AttributeError:
-                # If any of the expected attributes are missing, we skip this packet
                 pass
 
     if attacker_ip:
         print(f"Potential SSH Brute Force attack detected from: {attacker_ip}")
     else:
         print(f"No SSH Brute Force detected from {file_name}")
+
+    capture.close()
 
 
 def command_injection_pcap(file_name, ip_whitelist):
@@ -350,6 +359,8 @@ def command_injection_pcap(file_name, ip_whitelist):
     else:
         print(f"No Command Injection detected from {file_name}")
 
+    capture.close()
+
 
 def sql_injection_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
@@ -377,9 +388,13 @@ def sql_injection_pcap(file_name, ip_whitelist):
     else:
         print(f"No SQL Injection detected from {file_name}")
 
+    capture.close()
 
-def run_pcap_analyzer(file_name, ip_address=None):
-    ip_whitelist = ip_whitelisting(ip_address)
+
+def run_pcap_analyzer(file_name):
+    ip_whitelist = set()
+
+    # ip_whitelist = ip_whitelisting(ip_address)
     
     syn_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
     udp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
@@ -391,10 +406,10 @@ def run_pcap_analyzer(file_name, ip_address=None):
     syn_scan_pcap(file_name, ip_whitelist)
     xmas_scan_pcap(file_name, ip_whitelist)
     null_scan_pcap(file_name, ip_whitelist)
-    # print("")
+    print("")
 
-    # dns_arp_spoof_pcap(file_name, ip_whitelist)
-    # ssh_brute_force_pcap(file_name, ip_whitelist)
-    # command_injection_pcap(file_name, ip_whitelist)
-    # sql_injection_pcap(file_name, ip_whitelist)
-    
+    dns_arp_spoof_pcap(file_name, ip_whitelist)
+    ssh_brute_force_pcap(file_name, ip_whitelist)
+    command_injection_pcap(file_name, ip_whitelist)
+    sql_injection_pcap(file_name, ip_whitelist)
+    print("")
