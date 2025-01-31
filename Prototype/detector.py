@@ -153,7 +153,6 @@ def icmp_flood(packet, ip_whitelist):
         source_ip = packet[IP].src
         current_time = time.time()
 
-
         if source_ip not in ip_whitelist:
             icmp_count[source_ip].append(current_time)
             icmp_count[source_ip] = [t for t in icmp_count[source_ip] if current_time - t < constants.TIMEFRAME]
@@ -171,9 +170,11 @@ def ping_of_death(packet, ip_whitelist):
 
         # Check if the packet is fragmented
         if ip_layer.flags == 1:
-            reassembled_packet = packet.payload
+            reassembled_packet = b""
             while reassembled_packet.haslayer(IP) and reassembled_packet[IP].flags == 1:
-                reassembled_packet = reassembled_packet.payload
+                reassembled_packet += packet[IP].payload
+                packet = packet[IP].payload
+            reassembled_packet += packet[IP].payload
             total_size = len(reassembled_packet)
         else:
             total_size = len(packet)

