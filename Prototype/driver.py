@@ -21,7 +21,7 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
 
     try:
-        print("\nFlood Attack Detection started...\n")
+        print("\nReal-Time Detection started...\n")
         sniff(prn=detector.attack_analyzer, store=0)
     except Exception as e:
        print(f"Error: {e}")
