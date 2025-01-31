@@ -53,7 +53,7 @@ def write_to_log(attack_type, packet, protocol=None):
     if protocol == "ICMP":
         print(f"Source IP: {packet[IP].src}")
         print(f"Destination IP: {packet[IP].dst}")
-    if type(protocol) == set or type(protocol) == list:
+    if type(protocol) == list:
         print(f"Source IP: {packet[IP].src}")
         print(f"Destination IP: {packet[IP].dst}")
         print(f"List of scanned ports: {protocol}")
@@ -84,7 +84,7 @@ def write_to_log(attack_type, packet, protocol=None):
         if protocol == "ICMP":
             f.write(f"\nSource IP: {packet[IP].src}")
             f.write(f"\nDestination IP: {packet[IP].dst}")
-        if type(protocol) == set or type(protocol) == list:
+        if type(protocol) == list:
             f.write(f"\nSource IP: {packet[IP].src}")
             f.write(f"\nDestination IP: {packet[IP].dst}")
             f.write(f"\nList of scanned ports: {protocol}")
@@ -218,19 +218,26 @@ def tcp_connect_scan(packet, ip_whitelist):
 
 def syn_scan(packet, ip_whitelist):
     whitelisted_port = [53, 80, 443]
+    current_time = time.time()
 
     if packet.haslayer(TCP) and packet[TCP].flags == "S":
             source_ip = packet[IP].src
             dst_port = packet[TCP].dport
                        
             if source_ip not in syn_scans:
-                syn_scans[source_ip] = set()
+                syn_scans[source_ip] = {}
 
-            syn_scans[source_ip].add(dst_port)
+            syn_scans[source_ip][dst_port] = current_time
+
+            syn_scans[source_ip] = {
+                port: timestamp
+                for port, timestamp in syn_scans[source_ip].items()
+                if current_time - timestamp <= constants.TIMEFRAME
+            }
 
             if len(syn_scans[source_ip]) > constants.SCAN_THRESHOLD:
                 if source_ip not in ip_whitelist and dst_port not in whitelisted_port:
-                    write_to_log("SYN SCAN", packet, syn_scans[source_ip])
+                    write_to_log("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
 
 
 def xmas_scan(packet, ip_whitelist):
