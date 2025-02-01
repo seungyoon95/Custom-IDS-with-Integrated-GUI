@@ -221,6 +221,7 @@ def tcp_connect_scan(packet, ip_whitelist):
     whitelisted_port = [53, 80, 443]
     if packet.haslayer(TCP) and packet.haslayer(IP):
         source_ip = packet[IP].src
+        src_port = packet[TCP].sport
         dst_port = packet[TCP].dport
         current_time = time.time()
 
@@ -240,7 +241,7 @@ def tcp_connect_scan(packet, ip_whitelist):
                 syn_scans.pop(source_ip, None)
 
             if len(completed_handshake[source_ip]) > constants.SCAN_THRESHOLD:
-                if source_ip not in ip_whitelist and dst_port not in whitelisted_port:
+                if source_ip not in ip_whitelist and src_port not in whitelisted_port  and dst_port not in whitelisted_port:
                     write_to_log("TCP CONNECT SCAN", packet, list(completed_handshake[source_ip].keys()))
 
 
@@ -250,6 +251,7 @@ def syn_scan(packet, ip_whitelist):
 
     if packet.haslayer(TCP) and packet[TCP].flags == "S":
             source_ip = packet[IP].src
+            src_port = packet[TCP].sport
             dst_port = packet[TCP].dport
                        
             if source_ip not in syn_scans:
@@ -264,7 +266,7 @@ def syn_scan(packet, ip_whitelist):
             }
 
             if len(syn_scans[source_ip]) > constants.SCAN_THRESHOLD:
-                if source_ip not in ip_whitelist and dst_port not in whitelisted_port:
+                if source_ip not in ip_whitelist and src_port not in whitelisted_port and dst_port not in whitelisted_port:
                     write_to_log("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
 
 
