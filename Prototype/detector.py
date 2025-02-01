@@ -12,6 +12,7 @@ from scapy.packet import Raw
 from scapy.layers.l2 import ARP
 from scapy.layers.dns import DNS, DNSRR
 
+
 # Dictionaries to hold packet counts from 
 syn_count = defaultdict(list)
 udp_count = defaultdict(list)
@@ -29,7 +30,9 @@ pending_handshake = defaultdict(deque)
 completed_handshake = {}
 syn_scans = {}
 
-arp_table = {}
+arp_cache = {}
+dns_cache = {}
+
 dns_records = {}
 ssh_count = {}
 ssh_payloads = {}
@@ -59,17 +62,22 @@ def write_to_log(attack_type, packet, info=None):
         print(f"Destination IP: {packet[IP].dst}")
         print(f"List of scanned ports: {info}")
     
-    if attack_type == "ARP SPOOF":
+    if attack_type == "ARP SPOOFING":
         print(f"Source Mac Address: {info}")
-    if attack_type == "DNS SPOOF":
+    if attack_type == "DNS SPOOFING":
         print(f"Affected Domain: {info}")
     if attack_type == "SSH BRUTE FORCE":
-        print("Brute Force detected:")
+        print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
+        print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
         for payload in info:
             print(payload)
     if attack_type == "COMMAND INJECTION":
+        print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
+        print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
         print(f"Command Detected: {info}")
     if attack_type == "SQL INJECTION":
+        print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
+        print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
         print(f"Command Detected: {info}")
     
     
@@ -103,17 +111,24 @@ def write_to_log(attack_type, packet, info=None):
             f.write(f"\nDestination IP: {packet[IP].dst}")
             f.write(f"\nList of scanned ports: {info}")
         
-        if attack_type == "ARP SPOOF":
-            f.write(f"\nSource Mac Address: {info}")
-        if attack_type == "ARP SPOOF":
+        if attack_type == "ARP SPOOFING":
+            f.write(f"\nSpoofed Mac Address: {info}")
+        if attack_type == "DNS SPOOFING":
+            f.write(f"\nSource IP: {packet[IP].src}")
+            f.write(f"\nDestination IP: {packet[IP].dst}")
             f.write(f"\nAffected Domain: {info}")
         if attack_type == "SSH BRUTE FORCE":
-            f.write("\nBrute Force Attack Detected:")
+            f.write(f"\nSource IP and Port: {packet[IP].src}:{packet[TCP].sport}")
+            f.write(f"\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
             for payload in info:
-                f.write("\npayload")
+                f.write(f"\n{payload}")
         if attack_type == "COMMAND INJECTION":
-           f.write(f"\nCommand Detected: {info}")
+            f.write(f"\nSource IP and Port: {packet[IP].src}:{packet[TCP].sport}")
+            f.write(f"\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
+            f.write(f"\nCommand Detected: {info}")
         if attack_type == "SQL INJECTION":
+            f.write(f"\nSource IP and Port: {packet[IP].src}:{packet[TCP].sport}")
+            f.write(f"\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
             f.write(f"\nCommand Detected: {info}")
     
 
@@ -195,18 +210,9 @@ def ping_of_death(packet, ip_whitelist):
         ip_layer = packet[IP]
         source_ip = ip_layer.src
 
-        # Check if the packet is fragmented
-        if ip_layer.flags == 1:
-            reassembled_packet = b""
-            while reassembled_packet.haslayer(IP) and reassembled_packet[IP].flags == 1:
-                reassembled_packet += packet[IP].payload
-                packet = packet[IP].payload
-            reassembled_packet += packet[IP].payload
-            total_size = len(reassembled_packet)
-        else:
-            total_size = len(packet)
+        total_size = ip_layer.len
 
-        if total_size > 65535 and source_ip not in ip_whitelist:
+        if packet.haslayer(ICMP) and total_size > 65535 and source_ip not in ip_whitelist:
             write_to_log("PING OF DEATH", packet, "ICMP")
 
 
@@ -294,33 +300,33 @@ def type_scan(packet, ip_whitelist):
 
 
 def dns_arp_spoof(packet, ip_whitelist):
+    arp_cache["192.168.1.1"] = "a8-fb-40-9d-d1-03" # for testing
     if packet.haslayer(ARP) and packet[ARP].op == 2:
         src_ip = packet[ARP].psrc
         src_mac = packet[ARP].hwsrc
-        if src_ip in arp_table and arp_table[src_ip] != src_mac:
-            print(f"[ALERT] ARP Spoofing detected! IP: {src_ip}, MAC: {src_mac}")
-            write_to_log("ARP SPOOFING", packet, src_mac)
+        if src_ip in arp_cache:
+            if arp_cache[src_ip] != src_mac:
+                write_to_log("ARP SPOOFING", packet, src_mac)
+            else:
+                arp_cache[src_ip] = src_mac
 
-    if packet.haslayer(DNS) and packet.haslayer(DNSRR):
-        domain = packet[DNSRR].rrname.decode("utf-8")
-        resolved_ip = packet[DNSRR].rdata
-        current_time = time.time()
+    # if packet.haslayer(DNS) and packet.haslayer(DNSRR):
+    #     print(packet.summary())
+    #     domain = packet[DNSRR].rrname.decode("utf-8")
+    #     resolved_ip = packet[DNSRR].rdata
+    #     current_time = time.time()
 
-        if domain in dns_records:
-            prev_ip, timestamp, change_count = dns_records[domain]
+    #     if domain in dns_records:
+    #         prev_ip, timestamp, change_count = dns_records[domain]
 
-            # If the IP has changed and the time window is exceeded, check for spoofing
-            if prev_ip != resolved_ip and (current_time - timestamp) <= constants.TIMEFRAME:
-                # Consider allowing a certain number of changes before alerting
-                if change_count < 10:
-                    dns_records[domain] = (resolved_ip, current_time, change_count + 1)
-                else:
-                    print(f"[ALERT] DNS Spoofing Detected! {domain} changed from {prev_ip} to {resolved_ip} within {constants.TIMEFRAME} seconds")
-                    write_to_log("DNS SPOOFING", packet, domain)
-
-        # If it's the first time seeing this domain, add it to the records
-        else:
-            dns_records[domain] = (resolved_ip, current_time, 1)
+    #         if prev_ip != resolved_ip and (current_time - timestamp) <= constants.TIMEFRAME:
+    #             if change_count < 10:
+    #                 dns_records[domain] = (resolved_ip, current_time, change_count + 1)
+    #             else:
+    #                 print(f"[ALERT] DNS Spoofing Detected! {domain} changed from {prev_ip} to {resolved_ip} within {constants.TIMEFRAME} seconds")
+    #                 write_to_log("DNS SPOOFING", packet, domain)
+    #     else:
+    #         dns_records[domain] = (resolved_ip, current_time, 1)
 
 
 def ssh_brute_force(packet, ip_whitelist):

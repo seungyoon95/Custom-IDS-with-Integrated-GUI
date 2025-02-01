@@ -5,7 +5,7 @@ def syn_scan(target_ip, start_port, end_port):
     for target_port in range(start_port, end_port + 1):
         ip = IP(dst=target_ip)
         syn = TCP(dport=target_port, flags="S")
-        response = sr1(ip/syn, timeout=1, verbose=0)
+        response = sr1(ip/syn, timeout=0.1, verbose=0)
 
         if response:
             if response.haslayer(TCP):
@@ -19,8 +19,8 @@ def syn_scan(target_ip, start_port, end_port):
             print(f"No response from {target_ip} on port {target_port}")
 
 
-target_ip = "192.168.56.1"
+target_ip = "192.168.1.66"
 start = 10000
-end = 10011
+end = 10010
 
 syn_scan(target_ip, start, end)

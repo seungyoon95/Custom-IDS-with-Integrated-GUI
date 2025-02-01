@@ -5,7 +5,7 @@ def tcp_connect_scan(target_ip, start, end):
     for target_port in range(start, end + 1):
         ip = IP(dst=target_ip)
         syn = TCP(dport=target_port, flags="S")
-        response = sr1(ip/syn, timeout=1, verbose=0)
+        response = sr1(ip/syn, timeout=0.1, verbose=0)
 
         if response:
             if response.haslayer(TCP):
@@ -19,8 +19,8 @@ def tcp_connect_scan(target_ip, start, end):
             print(f"No response from {target_ip} on port {target_port}")
 
 
-target_ip = "192.168.56.1"
-start = 10000
-end = 10011
+target_ip = "192.168.1.66"
+start = 20000
+end = 20010
 
 tcp_connect_scan(target_ip, start, end)

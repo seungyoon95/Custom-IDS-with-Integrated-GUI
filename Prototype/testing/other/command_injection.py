@@ -14,7 +14,7 @@ def command_injection(target_ip, target_port):
     print(f"Command Injection simulated on {target_ip}:{target_port} with payload: {payload}")
 
 
-target_ip = "192.168.56.1"
+target_ip = "192.168.1.66"
 target_port = 10000
 
 command_injection(target_ip, target_port)

