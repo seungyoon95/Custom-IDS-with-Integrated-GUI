@@ -5,4 +5,4 @@ MAX_PENDING = 50
 
 SSH_THRESHOLD = 5
 
-TIMEFRAME = 5       # seconds
+TIMEFRAME = 1       # seconds
