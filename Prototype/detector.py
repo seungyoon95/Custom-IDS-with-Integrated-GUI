@@ -32,6 +32,7 @@ syn_scans = {}
 arp_table = {}
 dns_records = {}
 ssh_count = {}
+ssh_payloads = {}
 
 ip_whitelist = set()
 
@@ -39,24 +40,37 @@ ip_whitelist = set()
 local_ip = socket.gethostbyname(socket.gethostname())
 
 # Writes packet info to a log file
-def write_to_log(attack_type, packet, protocol=None):
+def write_to_log(attack_type, packet, info=None):
     print("\n===========================================")
     print(datetime.now())
     print(f"Attack Type: {attack_type}")
 
-    if protocol == "TCP" and type(protocol) != set:
+    if info == "TCP" and type(info) != set:
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
-    if protocol == "UDP":
+    if info == "UDP":
         print(f"Source IP and Port: {packet[IP].src}:{packet[UDP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[UDP].dport}")
-    if protocol == "ICMP":
+    if info == "ICMP":
         print(f"Source IP: {packet[IP].src}")
         print(f"Destination IP: {packet[IP].dst}")
-    if type(protocol) == list:
+    if (attack_type == "SYN SCAN" or attack_type == "TCP CONNECT SCAN") and type(info) == list:
         print(f"Source IP: {packet[IP].src}")
         print(f"Destination IP: {packet[IP].dst}")
-        print(f"List of scanned ports: {protocol}")
+        print(f"List of scanned ports: {info}")
+    
+    if attack_type == "ARP SPOOF":
+        print(f"Source Mac Address: {info}")
+    if attack_type == "DNS SPOOF":
+        print(f"Affected Domain: {info}")
+    if attack_type == "SSH BRUTE FORCE":
+        print("Brute Force detected:")
+        for payload in info:
+            print(payload)
+    if attack_type == "COMMAND INJECTION":
+        print(f"Command Detected: {info}")
+    if attack_type == "SQL INJECTION":
+        print(f"Command Detected: {info}")
     
     
 
@@ -75,19 +89,32 @@ def write_to_log(attack_type, packet, protocol=None):
         f.write("===========================================\n")
         f.write(str(datetime.now()))
         f.write(f"\nAttack Type: {attack_type}")
-        if protocol == "TCP" and type(protocol) != set:
+        if info == "TCP" and type(info) != set:
             f.write(f"\nSource IP and Port: {packet[IP].src}:{packet[TCP].sport}")
             f.write(f"\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
-        if protocol == "UDP":
+        if info == "UDP":
             f.write(f"\nSource IP and Port: {packet[IP].src}:{packet[UDP].sport}")
             f.write(f"\nDestination IP and Port: {packet[IP].dst}:{packet[UDP].dport}")
-        if protocol == "ICMP":
+        if info == "ICMP":
             f.write(f"\nSource IP: {packet[IP].src}")
             f.write(f"\nDestination IP: {packet[IP].dst}")
-        if type(protocol) == list:
+        if (attack_type == "SYN SCAN" or attack_type == "TCP CONNECT SCAN") and type(info) == list:
             f.write(f"\nSource IP: {packet[IP].src}")
             f.write(f"\nDestination IP: {packet[IP].dst}")
-            f.write(f"\nList of scanned ports: {protocol}")
+            f.write(f"\nList of scanned ports: {info}")
+        
+        if attack_type == "ARP SPOOF":
+            f.write(f"\nSource Mac Address: {info}")
+        if attack_type == "ARP SPOOF":
+            f.write(f"\nAffected Domain: {info}")
+        if attack_type == "SSH BRUTE FORCE":
+            f.write("\nBrute Force Attack Detected:")
+            for payload in info:
+                f.write("\npayload")
+        if attack_type == "COMMAND INJECTION":
+           f.write(f"\nCommand Detected: {info}")
+        if attack_type == "SQL INJECTION":
+            f.write(f"\nCommand Detected: {info}")
     
 
 def ip_whitelisting(ip_address):
@@ -270,6 +297,7 @@ def dns_arp_spoof(packet, ip_whitelist):
         src_mac = packet[ARP].hwsrc
         if src_ip in arp_table and arp_table[src_ip] != src_mac:
             print(f"[ALERT] ARP Spoofing detected! IP: {src_ip}, MAC: {src_mac}")
+            write_to_log("ARP SPOOFING", packet, src_mac)
 
     if packet.haslayer(DNS) and packet.haslayer(DNSRR):
         domain = packet[DNSRR].rrname.decode("utf-8")
@@ -286,6 +314,7 @@ def dns_arp_spoof(packet, ip_whitelist):
                     dns_records[domain] = (resolved_ip, current_time, change_count + 1)
                 else:
                     print(f"[ALERT] DNS Spoofing Detected! {domain} changed from {prev_ip} to {resolved_ip} within {constants.TIMEFRAME} seconds")
+                    write_to_log("DNS SPOOFING", packet, domain)
 
         # If it's the first time seeing this domain, add it to the records
         else:
@@ -298,8 +327,16 @@ def ssh_brute_force(packet, ip_whitelist):
 
         if src_ip not in ip_whitelist:
             ssh_count[src_ip] = ssh_count.get(src_ip, 0) + 1
+
+            if src_ip not in ssh_payloads:
+                ssh_payloads[src_ip] = []
+
+            if packet.haslayer(Raw):
+                payload = packet[Raw].load
+                ssh_payloads[src_ip].append(payload)
+
             if ssh_count[src_ip] > constants.SSH_THRESHOLD:
-                print(f"[ALERT] SSH Brute Force detected from {src_ip}")
+                write_to_log("SSH BRUTE FORCE", packet, ssh_payloads[src_ip])
 
 
 def command_injection(packet, ip_whitelist):
@@ -328,8 +365,7 @@ def command_injection(packet, ip_whitelist):
 
         for pattern in patterns:
             if re.search(pattern, payload, re.IGNORECASE):
-                print(f"[ALERT] Command Injection Detected in live traffic: {pattern}")
-                return
+                write_to_log("COMMAND INJECTION", packet, pattern)
 
 
 def sql_injection(packet, ip_whitelist):
@@ -345,7 +381,7 @@ def sql_injection(packet, ip_whitelist):
         ]
         for pattern in patterns:
             if re.search(pattern, payload, re.IGNORECASE):
-                print(f"[ALERT] SQL Injection Detected in live traffic: {pattern}")
+                write_to_log("SQL INJECTION", packet, pattern)
 
 
 def type_other(packet, ip_whitelist):
