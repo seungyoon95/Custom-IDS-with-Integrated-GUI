@@ -218,7 +218,7 @@ def type_flood(packet, ip_whitelist):
 
 
 def tcp_connect_scan(packet, ip_whitelist):
-    whitelisted_port = [53, 80, 443]
+    whitelisted_port = [22, 53, 80, 443]
     if packet.haslayer(TCP) and packet.haslayer(IP):
         source_ip = packet[IP].src
         src_port = packet[TCP].sport
@@ -246,7 +246,7 @@ def tcp_connect_scan(packet, ip_whitelist):
 
 
 def syn_scan(packet, ip_whitelist):
-    whitelisted_port = [53, 80, 443]
+    whitelisted_port = [22, 53, 80, 443]
     current_time = time.time()
 
     if packet.haslayer(TCP) and packet[TCP].flags == "S":
