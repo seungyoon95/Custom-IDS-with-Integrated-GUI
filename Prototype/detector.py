@@ -42,8 +42,7 @@ ip_whitelist = set()
 # Host IP address
 local_ip = socket.gethostbyname(socket.gethostname())
 
-# Writes packet info to a log file
-def write_to_log(attack_type, packet, info=None):
+def display_on_gui(attack_type, packet, info=None):
     print("\n===========================================")
     print(datetime.now())
     print(f"Attack Type: {attack_type}")
@@ -79,9 +78,9 @@ def write_to_log(attack_type, packet, info=None):
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
         print(f"Command Detected: {info}")
-    
-    
 
+# Writes packet info to a log file
+def write_to_log(attack_type, packet, info=None):
     current_date = datetime.now().strftime('%Y-%m-%d')
 
     # Creating log directory if it doesn't already exist
@@ -132,17 +131,20 @@ def write_to_log(attack_type, packet, info=None):
             f.write(f"\nCommand Detected: {info}")
     
 
+def alert_to_email(attack_type, packet, info=None):
+    pass
+
 def ip_whitelisting(ip_address):
     for ip in ip_address:
         if ip is not None and ip not in ip_whitelist:
             ip_whitelist.add(ip)
-            print(f"IP: {ip_address} added to the whitelist")
+            print(f"IP: {ip} added to the whitelist")
 
     return ip_whitelist
 
 
 # Detects SYN Flood Attack based on given timeframe and threshold
-def syn_flood(packet, ip_whitelist):
+def syn_flood(packet, ip_whitelist, log, gui_display, email):
     if packet.haslayer(TCP) and packet.haslayer(IP):
         source_ip = packet[IP].src
         dst_ip = packet[IP].dst
@@ -161,8 +163,13 @@ def syn_flood(packet, ip_whitelist):
 
                 if len(syn_count[source_ip]) > constants.FLOOD_THRESHOLD or len(pending_handshake[(source_ip, dst_ip)]) > constants.MAX_PENDING:
                     if source_ip != local_ip and source_ip not in syn_flood_alerted:
-                        write_to_log("SYN FLOOD", packet, "TCP")
                         syn_flood_alerted.add(source_ip)
+                        if log:
+                            write_to_log("SYN FLOOD", packet, "TCP")
+                        if gui_display:
+                            display_on_gui("SYN FLOOD", packet, "TCP")
+                        if email:
+                            alert_to_email("SYN FLOOD", packet, "TCP")
 
             elif packet[TCP].flags == 'A':
                 if (source_ip, dst_ip) in pending_handshake:
@@ -171,7 +178,7 @@ def syn_flood(packet, ip_whitelist):
                 
 
 # Detects UDP Flood Attack based on given timeframe and threshold
-def udp_flood(packet, ip_whitelist):
+def udp_flood(packet, ip_whitelist, log, gui_display, email):
     if packet.haslayer(UDP) and packet.haslayer(IP):
         whitelisted_port = [53, 80, 123, 443]
 
@@ -186,12 +193,17 @@ def udp_flood(packet, ip_whitelist):
         if source_ip not in ip_whitelist and src_port not in whitelisted_port and dst_port not in whitelisted_port:
             if len(udp_count[source_ip]) > constants.FLOOD_THRESHOLD:
                 if source_ip != local_ip and source_ip not in udp_flood_alerted:
-                    write_to_log("UDP FLOOD", packet, "UDP")
                     udp_flood_alerted.add(source_ip)
+                    if log:
+                        write_to_log("UDP FLOOD", packet, "UDP")
+                    if gui_display:
+                        display_on_gui("UDP FLOOD", packet, "UDP")
+                    if email:
+                        alert_to_email("UDP FLOOD", packet, "UDP")
 
 
 # Detects ICMP Flood Attack based on given timeframe and threshold
-def icmp_flood(packet, ip_whitelist):
+def icmp_flood(packet, ip_whitelist, log, gui_display, email):
     if packet.haslayer(ICMP) and packet.haslayer(IP):
         source_ip = packet[IP].src
         current_time = time.time()
@@ -202,17 +214,22 @@ def icmp_flood(packet, ip_whitelist):
 
             if len(icmp_count[source_ip]) > constants.FLOOD_THRESHOLD:
                 if source_ip != local_ip and source_ip not in ip_whitelist and source_ip not in icmp_flood_alerted:
-                    write_to_log("ICMP FLOOD", packet, "ICMP")
                     icmp_flood_alerted.add(source_ip)
+                    if log:
+                        write_to_log("ICMP FLOOD", packet, "ICMP")
+                    if gui_display:
+                        display_on_gui("ICMP FLOOD", packet, "ICMP")
+                    if email:
+                        alert_to_email("ICMP FLOOD", packet, "ICMP")
 
 
 def type_flood(packet, ip_whitelist, log, gui_display, email):
-    syn_flood(packet, ip_whitelist)
-    udp_flood(packet, ip_whitelist)
-    icmp_flood(packet, ip_whitelist)
+    syn_flood(packet, ip_whitelist, log, gui_display, email)
+    udp_flood(packet, ip_whitelist, log, gui_display, email)
+    icmp_flood(packet, ip_whitelist, log, gui_display, email)
 
 
-def tcp_connect_scan(packet, ip_whitelist):
+def tcp_connect_scan(packet, ip_whitelist, log, gui_display, email):
     whitelisted_port = [22, 53, 443]
     if packet.haslayer(TCP) and packet.haslayer(IP):
         source_ip = packet[IP].src
@@ -236,11 +253,17 @@ def tcp_connect_scan(packet, ip_whitelist):
                 syn_scans.pop(source_ip, None)
 
             if len(completed_handshake[source_ip]) > constants.SCAN_THRESHOLD:
-                if source_ip not in ip_whitelist and src_port not in whitelisted_port  and dst_port not in whitelisted_port:
-                    write_to_log("TCP CONNECT SCAN", packet, list(completed_handshake[source_ip].keys()))
+                if source_ip not in ip_whitelist and src_port not in whitelisted_port and dst_port not in whitelisted_port:
+                    if log:
+                        write_to_log("TCP CONNECT SCAN", packet, list(completed_handshake[source_ip].keys()))
+                    if gui_display:
+                        display_on_gui("TCP CONNECT SCAN", packet, list(completed_handshake[source_ip].keys()))
+                    if email:
+                        alert_to_email("TCP CONNECT SCAN", packet, list(completed_handshake[source_ip].keys()))
 
 
-def syn_scan(packet, ip_whitelist):
+
+def syn_scan(packet, ip_whitelist, log, gui_display, email):
     whitelisted_port = [22, 53, 443]
     current_time = time.time()
 
@@ -262,63 +285,88 @@ def syn_scan(packet, ip_whitelist):
 
             if len(syn_scans[source_ip]) > constants.SCAN_THRESHOLD:
                 if source_ip not in ip_whitelist and src_port not in whitelisted_port and dst_port not in whitelisted_port:
-                    write_to_log("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
+                    if log:
+                        write_to_log("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
+                    if gui_display:
+                        display_on_gui("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
+                    if email:
+                        alert_to_email("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
 
 
-def xmas_scan(packet, ip_whitelist):
+def xmas_scan(packet, ip_whitelist, log, gui_display, email):
     if packet.haslayer(TCP):
         tcp_flags = packet[TCP].flags
         source_ip = packet[IP].src
         if 'F' in tcp_flags and 'P' in tcp_flags and 'U' in tcp_flags and source_ip not in ip_whitelist:
-            write_to_log("XMAS SCAN", packet, "TCP")
+            if log:
+                write_to_log("XMAS SCAN", packet, "TCP")
+            if gui_display:
+                display_on_gui("XMAS SCAN", packet, "TCP")
+            if email:
+                alert_to_email("XMAS SCAN", packet, "TCP")
 
 
-def null_scan(packet, ip_whitelist):
+def null_scan(packet, ip_whitelist, log, gui_display, email):
     if packet.haslayer(TCP):
         tcp_flags = packet[TCP].flags
         source_ip = packet[IP].src
         if tcp_flags == 0 and source_ip not in ip_whitelist:
-            write_to_log("NULL SCAN", packet, "TCP")
+            if log:
+                write_to_log("NULL SCAN", packet, "TCP")
+            if gui_display:
+                display_on_gui("NULL SCAN", packet, "TCP")
+            if email:
+                alert_to_email("NULL SCAN", packet, "TCP")            
 
 
 def type_scan(packet, ip_whitelist, log, gui_display, email):
-    tcp_connect_scan(packet, ip_whitelist)
-    syn_scan(packet, ip_whitelist)
-    xmas_scan(packet, ip_whitelist)
-    null_scan(packet, ip_whitelist)
+    tcp_connect_scan(packet, ip_whitelist, log, gui_display, email)
+    syn_scan(packet, ip_whitelist, log, gui_display, email)
+    xmas_scan(packet, ip_whitelist, log, gui_display, email)
+    null_scan(packet, ip_whitelist, log, gui_display, email)
 
 
-def dns_arp_spoof(packet, ip_whitelist):
+def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email):
     arp_cache["192.168.1.1"] = "a8-fb-40-9d-d1-03" # for testing
     if packet.haslayer(ARP) and packet[ARP].op == 2:
         src_ip = packet[ARP].psrc
         src_mac = packet[ARP].hwsrc
         if src_ip in arp_cache:
             if arp_cache[src_ip] != src_mac:
-                write_to_log("ARP SPOOFING", packet, src_mac)
+                if log:
+                    write_to_log("ARP SPOOFING", packet, src_mac)
+                if gui_display:
+                    display_on_gui("ARP SPOOFING", packet, src_mac)
+                if email:
+                    alert_to_email("ARP SPOOFING", packet, src_mac)
+                
             else:
                 arp_cache[src_ip] = src_mac
 
-    # if packet.haslayer(DNS) and packet.haslayer(DNSRR):
-    #     print(packet.summary())
-    #     domain = packet[DNSRR].rrname.decode("utf-8")
-    #     resolved_ip = packet[DNSRR].rdata
-    #     current_time = time.time()
+    if packet.haslayer(DNS) and packet.haslayer(DNSRR):
+        print(packet.summary())
+        domain = packet[DNSRR].rrname.decode("utf-8")
+        resolved_ip = packet[DNSRR].rdata
+        current_time = time.time()
 
-    #     if domain in dns_records:
-    #         prev_ip, timestamp, change_count = dns_records[domain]
+        if domain in dns_records:
+            prev_ip, timestamp, change_count = dns_records[domain]
 
-    #         if prev_ip != resolved_ip and (current_time - timestamp) <= constants.TIMEFRAME:
-    #             if change_count < 10:
-    #                 dns_records[domain] = (resolved_ip, current_time, change_count + 1)
-    #             else:
-    #                 print(f"[ALERT] DNS Spoofing Detected! {domain} changed from {prev_ip} to {resolved_ip} within {constants.TIMEFRAME} seconds")
-    #                 write_to_log("DNS SPOOFING", packet, domain)
-    #     else:
-    #         dns_records[domain] = (resolved_ip, current_time, 1)
+            if prev_ip != resolved_ip and (current_time - timestamp) <= constants.TIMEFRAME:
+                if change_count < 10:
+                    dns_records[domain] = (resolved_ip, current_time, change_count + 1)
+                else:
+                    if log:
+                        write_to_log("DNS SPOOFING", packet, domain)
+                    if gui_display:
+                        display_on_gui("DNS SPOOFING", packet, src_mac)
+                    if email:
+                        alert_to_email("DNS SPOOFING", packet, src_mac)
+        else:
+            dns_records[domain] = (resolved_ip, current_time, 1)
 
 
-def ssh_brute_force(packet, ip_whitelist):
+def ssh_brute_force(packet, ip_whitelist, log, gui_display, email):
     if packet.haslayer(TCP) and packet[TCP].dport == 22:
         src_ip = packet[IP].src
 
@@ -333,10 +381,15 @@ def ssh_brute_force(packet, ip_whitelist):
                 ssh_payloads[src_ip].append(payload)
 
             if ssh_count[src_ip] > constants.SSH_THRESHOLD:
-                write_to_log("SSH BRUTE FORCE", packet, ssh_payloads[src_ip])
+                if log:
+                    write_to_log("SSH BRUTE FORCE", packet, ssh_payloads[src_ip])
+                if gui_display:
+                    display_on_gui("SSH BRUTE FORCE", packet, ssh_payloads[src_ip])
+                if email:
+                    alert_to_email("SSH BRUTE FORCE", packet, ssh_payloads[src_ip])
 
 
-def command_injection(packet, ip_whitelist):
+def command_injection(packet, ip_whitelist, log, gui_display, email):
     whitelisted_port = [80, 443]
 
     if packet.haslayer(Raw) and packet.haslayer(TCP) and packet[IP].src not in ip_whitelist and packet[TCP].dport not in whitelisted_port:
@@ -362,10 +415,15 @@ def command_injection(packet, ip_whitelist):
 
         for pattern in patterns:
             if re.search(pattern, payload, re.IGNORECASE):
-                write_to_log("COMMAND INJECTION", packet, pattern)
+                if log:
+                    write_to_log("COMMAND INJECTION", packet, pattern)
+                if gui_display:
+                    display_on_gui("COMMAND INJECTION", packet, pattern)
+                if email:
+                    alert_to_email("COMMAND INJECTION", packet, pattern)
 
 
-def sql_injection(packet, ip_whitelist):
+def sql_injection(packet, ip_whitelist, log, gui_display, email):
     if packet.haslayer(TCP) and packet.haslayer(Raw) and packet[IP].src not in ip_whitelist:
         payload = packet[Raw].load.decode(errors="ignore")
         patterns = [
@@ -378,14 +436,19 @@ def sql_injection(packet, ip_whitelist):
         ]
         for pattern in patterns:
             if re.search(pattern, payload, re.IGNORECASE):
-                write_to_log("SQL INJECTION", packet, pattern)
+                if log:
+                    write_to_log("SQL INJECTION", packet, pattern)
+                if gui_display:
+                    display_on_gui("SQL INJECTION", packet, pattern)
+                if email:
+                    alert_to_email("SQL INJECTION", packet, pattern)
 
 
 def type_other(packet, ip_whitelist, log, gui_display, email):
-    dns_arp_spoof(packet, ip_whitelist)
-    ssh_brute_force(packet, ip_whitelist)
-    command_injection(packet, ip_whitelist)
-    sql_injection(packet, ip_whitelist)
+    dns_arp_spoof(packet, ip_whitelist, log, gui_display, email)
+    ssh_brute_force(packet, ip_whitelist, log, gui_display, email)
+    command_injection(packet, ip_whitelist, log, gui_display, email)
+    sql_injection(packet, ip_whitelist, log, gui_display, email)
 
 
 # Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
