@@ -66,7 +66,10 @@ def open_analysis_page():
     stop_button.pack(pady=20)
 
 def run_realtime_analysis():
-    sniff(prn=process_packet, store=0)
+    sniff_running = True
+
+    while sniff_running:
+        sniff(prn=process_packet, store=0)
 
 def process_packet(packet):
     gui_display = gui_display_var.get()
@@ -83,6 +86,7 @@ def update_alert(alert):
     alert_label.config(text=alert, foreground="red")
 
 def stop_analysis():
+    sniff_running = False
     analysis_window.destroy()
     root.deiconify()
 
@@ -99,6 +103,8 @@ def main():
 
     global gui_display_var, log_var, email_var
     global gui_display, log, email
+
+    global sniff_running
 
     whitelisted_ip = set()
 
