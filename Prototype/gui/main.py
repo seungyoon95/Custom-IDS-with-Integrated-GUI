@@ -28,10 +28,6 @@ def select_file():
 def validate_start_button():
     if gui_display_var.get() or log_var.get() or email_var.get():
         start_button.config(state=tk.NORMAL)
-        gui_display = gui_display_var.get()
-        log = log_var.get()
-        email = email_var.get()
-        print(gui_display, log, email)
     else:
         start_button.config(state=tk.DISABLED)
 
@@ -73,7 +69,12 @@ def run_realtime_analysis():
     sniff(prn=process_packet, store=0)
 
 def process_packet(packet):
+    gui_display = gui_display_var.get()
+    log = log_var.get()
+    email = email_var.get()
+
     alert = detector.attack_analyzer(packet, whitelisted_ip, log, gui_display, email)
+    
     if alert:
         print(f"Alert generated: {alert}")
         root.after(0, update_alert, alert)

@@ -23,8 +23,6 @@ syn_flood_alerted = set()
 udp_flood_alerted = set()
 icmp_flood_alerted = set()
 
-ping_of_death_alerted = set()
-
 pending_handshake = defaultdict(deque)
 
 completed_handshake = {}
@@ -343,27 +341,27 @@ def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email):
             else:
                 arp_cache[src_ip] = src_mac
 
-    if packet.haslayer(DNS) and packet.haslayer(DNSRR):
-        print(packet.summary())
-        domain = packet[DNSRR].rrname.decode("utf-8")
-        resolved_ip = packet[DNSRR].rdata
-        current_time = time.time()
+    # if packet.haslayer(DNS) and packet.haslayer(DNSRR):
+    #     print(packet.summary())
+    #     domain = packet[DNSRR].rrname.decode("utf-8")
+    #     resolved_ip = packet[DNSRR].rdata
+    #     current_time = time.time()
 
-        if domain in dns_records:
-            prev_ip, timestamp, change_count = dns_records[domain]
+    #     if domain in dns_records:
+    #         prev_ip, timestamp, change_count = dns_records[domain]
 
-            if prev_ip != resolved_ip and (current_time - timestamp) <= constants.TIMEFRAME:
-                if change_count < 10:
-                    dns_records[domain] = (resolved_ip, current_time, change_count + 1)
-                else:
-                    if log:
-                        write_to_log("DNS SPOOFING", packet, domain)
-                    if gui_display:
-                        display_on_gui("DNS SPOOFING", packet, src_mac)
-                    if email:
-                        alert_to_email("DNS SPOOFING", packet, src_mac)
-        else:
-            dns_records[domain] = (resolved_ip, current_time, 1)
+    #         if prev_ip != resolved_ip and (current_time - timestamp) <= constants.TIMEFRAME:
+    #             if change_count < 10:
+    #                 dns_records[domain] = (resolved_ip, current_time, change_count + 1)
+    #             else:
+    #                 if log:
+    #                     write_to_log("DNS SPOOFING", packet, domain)
+    #                 if gui_display:
+    #                     display_on_gui("DNS SPOOFING", packet, src_mac)
+    #                 if email:
+    #                     alert_to_email("DNS SPOOFING", packet, src_mac)
+    #     else:
+    #         dns_records[domain] = (resolved_ip, current_time, 1)
 
 
 def ssh_brute_force(packet, ip_whitelist, log, gui_display, email):
@@ -457,7 +455,7 @@ def attack_analyzer(packet, ip_address=None, log=True, gui_display=False, email=
     
     # ip_whitelist = set()
     # ip_whitelist.add("192.168.1.66")
-
+    
     type_flood(packet, ip_whitelist, log, gui_display, email)
     type_scan(packet, ip_whitelist, log, gui_display, email)
     type_other(packet, ip_whitelist, log, gui_display, email)
