@@ -133,9 +133,10 @@ def write_to_log(attack_type, packet, info=None):
     
 
 def ip_whitelisting(ip_address):
-    if ip_address is not None and ip_address not in ip_whitelist:
-        ip_whitelist.add(ip_address)
-        print(f"IP: {ip_address} added to the whitelist")
+    for ip in ip_address:
+        if ip is not None and ip not in ip_whitelist:
+            ip_whitelist.add(ip)
+            print(f"IP: {ip_address} added to the whitelist")
 
     return ip_whitelist
 
@@ -205,22 +206,10 @@ def icmp_flood(packet, ip_whitelist):
                     icmp_flood_alerted.add(source_ip)
 
 
-def ping_of_death(packet, ip_whitelist):
-    if packet.haslayer(IP):
-        ip_layer = packet[IP]
-        source_ip = ip_layer.src
-
-        total_size = ip_layer.len
-
-        if packet.haslayer(ICMP) and total_size > 65535 and source_ip not in ip_whitelist:
-            write_to_log("PING OF DEATH", packet, "ICMP")
-
-
-def type_flood(packet, ip_whitelist):
+def type_flood(packet, ip_whitelist, log, gui_display, email):
     syn_flood(packet, ip_whitelist)
     udp_flood(packet, ip_whitelist)
     icmp_flood(packet, ip_whitelist)
-    ping_of_death(packet, ip_whitelist)
 
 
 def tcp_connect_scan(packet, ip_whitelist):
@@ -292,7 +281,7 @@ def null_scan(packet, ip_whitelist):
             write_to_log("NULL SCAN", packet, "TCP")
 
 
-def type_scan(packet, ip_whitelist):
+def type_scan(packet, ip_whitelist, log, gui_display, email):
     tcp_connect_scan(packet, ip_whitelist)
     syn_scan(packet, ip_whitelist)
     xmas_scan(packet, ip_whitelist)
@@ -392,7 +381,7 @@ def sql_injection(packet, ip_whitelist):
                 write_to_log("SQL INJECTION", packet, pattern)
 
 
-def type_other(packet, ip_whitelist):
+def type_other(packet, ip_whitelist, log, gui_display, email):
     dns_arp_spoof(packet, ip_whitelist)
     ssh_brute_force(packet, ip_whitelist)
     command_injection(packet, ip_whitelist)
@@ -400,13 +389,13 @@ def type_other(packet, ip_whitelist):
 
 
 # Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
-def attack_analyzer(packet):
-    # ip_whitelist = ip_whitelisting(ip_address)
+def attack_analyzer(packet, ip_address=None, log=True, gui_display=False, email=False):
+    ip_whitelist = ip_whitelisting(ip_address)
     
-    ip_whitelist = set()
-    ip_whitelist.add("192.168.1.66")
+    # ip_whitelist = set()
+    # ip_whitelist.add("192.168.1.66")
 
-    type_flood(packet, ip_whitelist)
-    type_scan(packet, ip_whitelist)
-    type_other(packet, ip_whitelist)
+    type_flood(packet, ip_whitelist, log, gui_display, email)
+    type_scan(packet, ip_whitelist, log, gui_display, email)
+    type_other(packet, ip_whitelist, log, gui_display, email)
     

@@ -28,6 +28,10 @@ def select_file():
 def validate_start_button():
     if gui_display_var.get() or log_var.get() or email_var.get():
         start_button.config(state=tk.NORMAL)
+        gui_display = gui_display_var.get()
+        log = log_var.get()
+        email = email_var.get()
+        print(gui_display, log, email)
     else:
         start_button.config(state=tk.DISABLED)
 
@@ -69,7 +73,7 @@ def run_realtime_analysis():
     sniff(prn=process_packet, store=0)
 
 def process_packet(packet):
-    alert = detector.attack_analyzer(packet)
+    alert = detector.attack_analyzer(packet, whitelisted_ip, log, gui_display, email)
     if alert:
         print(f"Alert generated: {alert}")
         root.after(0, update_alert, alert)
@@ -85,12 +89,22 @@ def add_ip():
     ip = ip_entry.get()
     if ip and ip not in ip_list.get(0, tk.END):
         ip_list.insert(tk.END, ip)
+        whitelisted_ip.add(ip)
     ip_entry.delete(0, tk.END)
 
 def main():
     global root, ip_entry, ip_list, analysis_mode, selected_file, file_button, start_button, file_label
+    global whitelisted_ip
+
     global gui_display_var, log_var, email_var
-    
+    global gui_display, log, email
+
+    whitelisted_ip = set()
+
+    gui_display = False
+    log = False
+    email = False
+
     root = tk.Tk()
     root.title("Custom IDS")
     root.geometry("1200x800")
@@ -122,7 +136,7 @@ def main():
     file_label = ttk.Label(root, text="", font=("Arial", 12))
     
     ttk.Label(root, text="Select Alert Delivery Method:", font=("Arial", 14)).pack(pady=10)
-    gui_display_var = tk.BooleanVar(value=True)
+    gui_display_var = tk.BooleanVar(value=False)
     log_var = tk.BooleanVar(value=False)
     email_var = tk.BooleanVar(value=False)
     
@@ -138,6 +152,7 @@ def main():
     
     start_button = ttk.Button(root, text="Start IDS", command=start_analysis, style="TButton")
     start_button.pack(pady=20)
+
     validate_start_button()
     
     root.mainloop()
