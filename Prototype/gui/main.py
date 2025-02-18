@@ -14,10 +14,28 @@ def toggle_file_upload():
     if analysis_mode.get() == "pcap":
         file_button.pack(pady=10, before=start_button)
         file_label.pack(pady=5, before=start_button)
+
+        delivery_label.pack_forget()
+        gui_checkbox.pack_forget()
+        log_checkbox.pack_forget()
+        email_checkbox.pack_forget()
+        
+        gui_display_var.set(True)
+        log_var.set(False)
+        email_var.set(False)
+        
+        validate_start_button() 
     else:
         file_button.pack_forget()
         file_label.pack_forget()
         selected_file.set("")
+
+        delivery_label.pack(pady=10, before=alert_frame)
+        gui_checkbox.pack(side=tk.LEFT, padx=10)
+        log_checkbox.pack(side=tk.LEFT, padx=10)
+        email_checkbox.pack(side=tk.LEFT, padx=10)
+
+        validate_start_button()
 
 def select_file():
     file_path = filedialog.askopenfilename(filetypes=[("PCAP files", "*.pcap")])
@@ -103,6 +121,7 @@ def main():
 
     global gui_display_var, log_var, email_var
     global gui_display, log, email
+    global delivery_label, gui_checkbox, log_checkbox, email_checkbox, alert_frame
 
     global sniff_running
 
@@ -142,7 +161,8 @@ def main():
     file_button = ttk.Button(root, text="Upload PCAP File", command=select_file, style="TButton")
     file_label = ttk.Label(root, text="", font=("Arial", 12))
     
-    ttk.Label(root, text="Select Alert Delivery Method:", font=("Arial", 14)).pack(pady=10)
+    delivery_label = ttk.Label(root, text="Select Alert Delivery Method:", font=("Arial", 14))
+    delivery_label.pack(pady=10)
     gui_display_var = tk.BooleanVar(value=False)
     log_var = tk.BooleanVar(value=False)
     email_var = tk.BooleanVar(value=False)
