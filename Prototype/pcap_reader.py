@@ -124,50 +124,6 @@ def icmp_flood_pcap(file_name, timeframe, threshold, ip_whitelist):
     capture.close()
 
 
-def ping_of_death_pcap(file_name, ip_whitelist):
-    capture = pyshark.FileCapture(file_name)
-
-    attacker_ip = set()
-    fragments = {}
-
-    for packet in capture:
-        if hasattr(packet, 'ip'):
-            ip_layer = packet.ip
-            src_ip = ip_layer.src
-            size = int(ip_layer.len)
-
-            # Check if packet is fragmented
-            if hasattr(packet.ip, 'flags') and packet.ip.flags == '1':
-                fragment_id = packet.ip.id
-                if fragment_id not in fragments:
-                    fragments[fragment_id] = []
-                fragments[fragment_id].append(packet)
-            else:
-                if size > 65535 and src_ip not in ip_whitelist:
-                    attacker_ip.add(src_ip)
-                    print(f"Potential Ping of Death detected from: {src_ip}")
-
-    for fragment_id, fragment_list in fragments.items():
-        reassembled_packet = fragment_list[0]
-        for frag in fragment_list[1:]:
-            reassembled_packet = reassembled_packet / frag.payload
-
-        
-        total_size = len(reassembled_packet)
-        if total_size > 65535:
-            src_ip = reassembled_packet[IP].src
-            if src_ip not in ip_whitelist:
-                attacker_ip.add(src_ip)
-                print(f"Potential Ping of Death detected from: {src_ip}")
-
-    if attacker_ip:
-        print(f"Potential Ping of Death detected from: {attacker_ip}")
-    else:
-        print(f"No Ping of Death detected from {file_name}")
-
-    capture.close()
-
-
 def tcp_connect_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp")
     handshake_tracker = defaultdict(set)
@@ -423,7 +379,6 @@ def run_pcap_analyzer(file_name):
     syn_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
     udp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
     icmp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
-    ping_of_death_pcap(file_name, ip_whitelist)
     print("")
 
     tcp_connect_scan_pcap(file_name, ip_whitelist)
@@ -437,3 +392,7 @@ def run_pcap_analyzer(file_name):
     command_injection_pcap(file_name, ip_whitelist)
     sql_injection_pcap(file_name, ip_whitelist)
     print("")
+
+    print("=================")
+    print("ANALYSIS COMPLETE")
+    print("=================")

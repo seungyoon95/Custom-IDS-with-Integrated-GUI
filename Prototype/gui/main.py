@@ -9,6 +9,7 @@ detector_path = os.path.abspath("../")
 sys.path.append(detector_path)
 
 import detector
+import pcap_reader
 
 def toggle_file_upload():
     if analysis_mode.get() == "pcap":
@@ -43,44 +44,80 @@ def select_file():
         selected_file.set(file_path)
         file_label.config(text=f"Selected File: {file_path}")
 
+    validate_start_button()
+
 def validate_start_button():
-    if gui_display_var.get() or log_var.get() or email_var.get():
-        start_button.config(state=tk.NORMAL)
+    if analysis_mode.get() == "pcap":
+        if not selected_file.get():
+            start_button.config(state=tk.DISABLED)
+        else:
+            start_button.config(state=tk.NORMAL)
     else:
-        start_button.config(state=tk.DISABLED)
+        if gui_display_var.get() or log_var.get() or email_var.get():
+            start_button.config(state=tk.NORMAL)
+        else:
+            start_button.config(state=tk.DISABLED)
 
 def start_analysis():
-    global ip_whitelist, analysis_mode_selected, alert_methods
-    
-    ip_whitelist = list(ip_list.get(0, tk.END))
-    analysis_mode_selected = analysis_mode.get()
-    alert_methods = []
-    if gui_display_var.get():
-        alert_methods.append("GUI Display")
-    if log_var.get():
-        alert_methods.append("Log")
-    if email_var.get():
-        alert_methods.append("Email")
-    
-    root.withdraw()
-    open_analysis_page()
-    
-    if analysis_mode_selected == "real-time":
+    if analysis_mode.get() == "real-time":
+        global ip_whitelist, analysis_mode_selected, alert_methods
+        
+        ip_whitelist = list(ip_list.get(0, tk.END))
+        analysis_mode_selected = analysis_mode.get()
+        alert_methods = []
+        if gui_display_var.get():
+            alert_methods.append("GUI Display")
+        if log_var.get():
+            alert_methods.append("Log")
+        if email_var.get():
+            alert_methods.append("Email")
+        
+        root.withdraw()
+        open_realtime_page()
+        
         threading.Thread(target=run_realtime_analysis, daemon=True).start()
+    else:
+        file_path = selected_file.get()
+        if not os.path.exists(file_path):
+            print("ERROR: File not found, please check file path and try again.\n")
+            sys.exit(1)
 
-def open_analysis_page():
+        print(f"Analyizing {file_path}...\n")
+
+        root.withdraw()
+        open_pcap_page()
+
+        pcap_reader.run_pcap_analyzer(file_path)
+
+
+def open_realtime_page():
     global alert_label, analysis_window
     
     analysis_window = tk.Toplevel(root)
-    analysis_window.title("IDS Analysis")
+    analysis_window.title("Real-Time Analysis")
     analysis_window.geometry("1200x800")
     
-    ttk.Label(analysis_window, text="Alerts", font=("Arial", 16)).pack(pady=20)
+    ttk.Label(analysis_window, text="Real-Time Alerts", font=("Arial", 16)).pack(pady=20)
     
     alert_label = ttk.Label(analysis_window, text="No threats detected...", font=("Arial", 14), foreground="green")
     alert_label.pack(pady=20)
     
     stop_button = ttk.Button(analysis_window, text="Stop IDS", command=stop_analysis, style="TButton")
+    stop_button.pack(pady=20)
+
+def open_pcap_page():
+    global alert_label, pcap_window
+
+    pcap_window = tk.Toplevel(root)
+    pcap_window.title("PCAP Analysis")
+    pcap_window.geometry("1200x800")
+    
+    ttk.Label(pcap_window, text="PCAP Analysis Results", font=("Arial", 16)).pack(pady=20)
+    
+    alert_label = ttk.Label(pcap_window, text="Analysis in progress...", font=("Arial", 14), foreground="green")
+    alert_label.pack(pady=20)
+    
+    stop_button = ttk.Button(pcap_window, text="Go Back", command=stop_analysis, style="TButton")
     stop_button.pack(pady=20)
 
 def run_realtime_analysis():
@@ -104,9 +141,13 @@ def update_alert(alert):
     alert_label.config(text=alert, foreground="red")
 
 def stop_analysis():
-    sniff_running = False
-    analysis_window.destroy()
-    root.deiconify()
+    if analysis_mode.get() == "real-time":
+        sniff_running = False
+        analysis_window.destroy()
+        root.deiconify()
+    else:
+        pcap_window.destroy()
+        root.deiconify()
 
 def add_ip():
     ip = ip_entry.get()
@@ -179,8 +220,6 @@ def main():
     
     start_button = ttk.Button(root, text="Start IDS", command=start_analysis, style="TButton")
     start_button.pack(pady=20)
-
-    validate_start_button()
     
     root.mainloop()
 
