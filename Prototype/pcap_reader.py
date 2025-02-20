@@ -19,7 +19,10 @@ def ip_whitelisting(ip_address):
     return ip_whitelist
 
 
-def syn_flood_pcap(file_name, timeframe, threshold, ip_whitelist):
+def syn_flood_pcap(file_name, ip_whitelist):
+    timeframe = constants.TIMEFRAME
+    threshold = constants.FLOOD_THRESHOLD
+
     capture = pyshark.FileCapture(file_name, display_filter='tcp.flags.syn == 1 and tcp.flags.ack == 0')
     syn_count = defaultdict(list)
 
@@ -46,15 +49,20 @@ def syn_flood_pcap(file_name, timeframe, threshold, ip_whitelist):
             if packet_count > threshold and src_ip not in ip_whitelist:
                 attacker_ip.add(src_ip)
 
-    if attacker_ip:
-        print(f"Potential SYN Flood Attacks detected from: {attacker_ip}")
-    else:
-        print(f"No SYN Flood detected from {file_name}")
-
     capture.close()
 
+    if attacker_ip:
+        print(f"Potential SYN Flood Attacks detected from: {attacker_ip}")
+        return (f"Potential SYN Flood Attacks detected from: {attacker_ip}", True)
+    else:
+        print(f"No SYN Flood detected from {file_name}")
+        return ("No SYN Flood detected", False)
 
-def udp_flood_pcap(file_name, timeframe, threshold, ip_whitelist):
+
+def udp_flood_pcap(file_name, ip_whitelist):
+    timeframe = constants.TIMEFRAME
+    threshold = constants.FLOOD_THRESHOLD
+
     capture = pyshark.FileCapture(file_name, display_filter='udp')
     udp_count = defaultdict(list)
 
@@ -81,15 +89,20 @@ def udp_flood_pcap(file_name, timeframe, threshold, ip_whitelist):
             if packet_count > threshold and src_ip not in ip_whitelist:
                 attacker_ip.add(src_ip)
 
-    if attacker_ip:
-        print(f"Potential UDP Flood Attacks detected from: {attacker_ip}")
-    else:
-        print(f"No UDP Flood detected from {file_name}")
-
     capture.close()
 
+    if attacker_ip:
+        print(f"Potential UDP Flood Attacks detected from: {attacker_ip}")
+        return f"Potential UDP Flood Attacks detected from: {attacker_ip}"
+    else:
+        print(f"No UDP Flood detected from {file_name}")
+        return "No UDP Flood detected"
 
-def icmp_flood_pcap(file_name, timeframe, threshold, ip_whitelist):
+
+def icmp_flood_pcap(file_name, ip_whitelist):
+    timeframe = constants.TIMEFRAME
+    threshold = constants.FLOOD_THRESHOLD
+
     capture = pyshark.FileCapture(file_name, display_filter='icmp.type == 8')
     icmp_count = defaultdict(list)
 
@@ -116,12 +129,14 @@ def icmp_flood_pcap(file_name, timeframe, threshold, ip_whitelist):
             if packet_count > threshold and src_ip not in ip_whitelist:
                 attacker_ip.add(src_ip)
 
+    capture.close()
+
     if attacker_ip:
         print(f"Potential ICMP Flood Attacks detected from: {attacker_ip}")
+        return f"Potential ICMP Flood Attacks detected from: {attacker_ip}"
     else:
         print(f"No ICMP Flood detected from {file_name}")
-
-    capture.close()
+        return "No ICMP Flood Detected"
 
 
 def tcp_connect_scan_pcap(file_name, ip_whitelist):
@@ -151,12 +166,14 @@ def tcp_connect_scan_pcap(file_name, ip_whitelist):
             print(f"TCP Connect Scan detected from {src_ip}: Scanned ports: {sorted(ports)}")
             attacker_ip.add(src_ip)
 
+    capture.close()
+
     if attacker_ip:
         print(f"Potential TCP connect scan detected from: {attacker_ip}")
+        return f"Potential TCP connect scan detected from: {attacker_ip}"
     else:
         print(f"No TCP connect scan detected from {file_name}")
-
-    capture.close()
+        return "No TCP Connect Scan detected"
 
 
 def syn_scan_pcap(file_name, ip_whitelist):
@@ -175,13 +192,15 @@ def syn_scan_pcap(file_name, ip_whitelist):
         if len(ports) > constants.SCAN_THRESHOLD and src_ip not in ip_whitelist:
             print(f"SYN Scan detected from {src_ip}: Scanned ports: {list(ports.keys())}")
             attacker_ip.add(src_ip)
+    
+    capture.close()
 
     if attacker_ip:
         print(f"Potential SYN scan detected from: {attacker_ip}")
+        return f"Potential SYN scan detected from: {attacker_ip}"
     else:
         print(f"No SYN scan detected from {file_name}")
-
-    capture.close()
+        return "No SYN Scan detected"
 
 
 def xmas_scan_pcap(file_name, ip_whitelist):
@@ -196,14 +215,15 @@ def xmas_scan_pcap(file_name, ip_whitelist):
             print(f"Xmas Scan detected: Abnormal packet from {src_ip}")
             attacker_ip.add(src_ip)
         
+    capture.close()
 
     if attacker_ip:
         print(f"Potential Xmas scan detected from: {attacker_ip}")
+        return f"Potential Xmas scan detected from: {attacker_ip}"
     else:
         print(f"No Xmas scan detected from {file_name}")
-
-    capture.close()
-
+        return "No Xmas Scan detected"
+    
 
 def null_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp.flags==0x00")
@@ -217,12 +237,14 @@ def null_scan_pcap(file_name, ip_whitelist):
             print(f"Null Scan detected: Abnormal packet from {src_ip}")
             attacker_ip.add(src_ip)
 
+    capture.close()
+
     if attacker_ip:
         print(f"Potential Null scan detected from: {attacker_ip}")
+        return f"Potential Null scan detected from: {attacker_ip}"
     else:
         print(f"No Null scan detected from {file_name}")
-
-    capture.close()
+        return "No Null Scan detected"
 
 
 def dns_arp_spoof_pcap(file_name, ip_whitelist):
@@ -263,12 +285,14 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
             except AttributeError:
                 pass  
 
+    capture.close()
+
     if attacker_ip:
         print(f"Potential DNS/ARP Spoofing detected from: {attacker_ip}")
+        return f"Potential DNS/ARP Spoofing detected from: {attacker_ip}"
     else:
         print(f"No DNS/ARP Spoofing detected from {file_name}")
-
-    capture.close()
+        return "No DNS/ARP Spoofing detected"
 
 
 def ssh_brute_force_pcap(file_name, ip_whitelist):
@@ -292,12 +316,14 @@ def ssh_brute_force_pcap(file_name, ip_whitelist):
             except AttributeError:
                 pass
 
+    capture.close()
+
     if attacker_ip:
         print(f"Potential SSH Brute Force attack detected from: {attacker_ip}")
+        return f"Potential SSH Brute Force attack detected from: {attacker_ip}"
     else:
         print(f"No SSH Brute Force detected from {file_name}")
-
-    capture.close()
+        return "No SSH Brute Force detected"
 
 
 def command_injection_pcap(file_name, ip_whitelist):
@@ -334,12 +360,14 @@ def command_injection_pcap(file_name, ip_whitelist):
                         print(f"[ALERT] Command Injection Detected in live traffic: {pattern}")
                         attacker_ip.add(packet.ip.src)
 
+    capture.close()
+
     if attacker_ip:
         print(f"Potential Command Injection detected from: {attacker_ip}")
+        return f"Potential Command Injection detected from: {attacker_ip}"
     else:
         print(f"No Command Injection detected from {file_name}")
-
-    capture.close()
+        return "No Command Injection detected"
 
 
 def sql_injection_pcap(file_name, ip_whitelist):
@@ -363,36 +391,39 @@ def sql_injection_pcap(file_name, ip_whitelist):
                     print(f"[ALERT] SQL Injection Detected in live traffic: {pattern}")
                     attacker_ip.add(packet.ip.src)
 
+    capture.close()
+
     if attacker_ip:
         print(f"Potential SQL Injection detected from: {attacker_ip}")
+        return f"Potential SQL Injection detected from: {attacker_ip}"
     else:
         print(f"No SQL Injection detected from {file_name}")
-
-    capture.close()
+        return "No SQL Injection Detected"
 
 
 def run_pcap_analyzer(file_name):
-    ip_whitelist = set()
+    # ip_whitelist = set()
 
-    # ip_whitelist = ip_whitelisting(ip_address)
+    # # ip_whitelist = ip_whitelisting(ip_address)
     
-    syn_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
-    udp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
-    icmp_flood_pcap(file_name, constants.TIMEFRAME, constants.FLOOD_THRESHOLD, ip_whitelist)
-    print("")
+    # syn_flood_pcap(file_name, ip_whitelist)
+    # udp_flood_pcap(file_name, ip_whitelist)
+    # icmp_flood_pcap(file_name, ip_whitelist)
+    # print("")
 
-    tcp_connect_scan_pcap(file_name, ip_whitelist)
-    syn_scan_pcap(file_name, ip_whitelist)
-    xmas_scan_pcap(file_name, ip_whitelist)
-    null_scan_pcap(file_name, ip_whitelist)
-    print("")
+    # tcp_connect_scan_pcap(file_name, ip_whitelist)
+    # syn_scan_pcap(file_name, ip_whitelist)
+    # xmas_scan_pcap(file_name, ip_whitelist)
+    # null_scan_pcap(file_name, ip_whitelist)
+    # print("")
 
-    dns_arp_spoof_pcap(file_name, ip_whitelist)
-    ssh_brute_force_pcap(file_name, ip_whitelist)
-    command_injection_pcap(file_name, ip_whitelist)
-    sql_injection_pcap(file_name, ip_whitelist)
-    print("")
+    # dns_arp_spoof_pcap(file_name, ip_whitelist)
+    # ssh_brute_force_pcap(file_name, ip_whitelist)
+    # command_injection_pcap(file_name, ip_whitelist)
+    # sql_injection_pcap(file_name, ip_whitelist)
+    # print("")
 
-    print("=================")
-    print("ANALYSIS COMPLETE")
-    print("=================")
+    # print("=================")
+    # print("ANALYSIS COMPLETE")
+    # print("=================")
+    pass

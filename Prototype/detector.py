@@ -452,10 +452,7 @@ def type_other(packet, ip_whitelist, log, gui_display, email):
 # Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
 def attack_analyzer(packet, ip_address=None, log=True, gui_display=False, email=False):
     ip_whitelist = ip_whitelisting(ip_address)
-    
-    # ip_whitelist = set()
-    # ip_whitelist.add("192.168.1.66")
-    
+        
     type_flood(packet, ip_whitelist, log, gui_display, email)
     type_scan(packet, ip_whitelist, log, gui_display, email)
     type_other(packet, ip_whitelist, log, gui_display, email)

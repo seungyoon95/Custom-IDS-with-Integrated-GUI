@@ -87,8 +87,8 @@ def start_analysis():
         root.withdraw()
         open_pcap_page()
 
-        pcap_reader.run_pcap_analyzer(file_path)
-
+        # pcap_reader.run_pcap_analyzer(file_path)
+        
 
 def open_realtime_page():
     global alert_label, analysis_window
@@ -107,6 +107,7 @@ def open_realtime_page():
 
 def open_pcap_page():
     global alert_label, pcap_window
+    ip_whitelist = list(ip_list.get(0, tk.END))
 
     pcap_window = tk.Toplevel(root)
     pcap_window.title("PCAP Analysis")
@@ -114,9 +115,71 @@ def open_pcap_page():
     
     ttk.Label(pcap_window, text="PCAP Analysis Results", font=("Arial", 16)).pack(pady=20)
     
-    alert_label = ttk.Label(pcap_window, text="Analysis in progress...", font=("Arial", 14), foreground="green")
-    alert_label.pack(pady=20)
+    # alert_label = ttk.Label(pcap_window, text="Analysis in progress...", font=("Arial", 14), foreground="green")
+    # alert_label.pack(pady=20)
     
+    file_path = selected_file.get()
+
+    # SYN Flood
+    syn_flood, detected = pcap_reader.syn_flood_pcap(file_path, ip_whitelist)
+    if detected:
+        syn_flood_label = ttk.Label(pcap_window, text=syn_flood, font=("Arial", 13))
+        syn_flood_label.pack()
+    else:
+        syn_flood_label = ttk.Label(pcap_window, text=syn_flood, font=("Arial", 13))
+        syn_flood_label.pack()
+
+    # UDP Flood
+    udp_flood = pcap_reader.udp_flood_pcap(file_path, ip_whitelist)
+    udp_flood_label = ttk.Label(pcap_window, text=udp_flood, font=("Arial", 13))
+    udp_flood_label.pack()
+
+    # ICMP Flood
+    icmp_flood = pcap_reader.icmp_flood_pcap(file_path, ip_whitelist)
+    icmp_flood_label = ttk.Label(pcap_window, text=icmp_flood, font=("Arial", 13))
+    icmp_flood_label.pack()
+
+    # TCP Connect Scan
+    tcp_connect_scan = pcap_reader.tcp_connect_scan_pcap(file_path, ip_whitelist)
+    tcp_connect_scan_label = ttk.Label(pcap_window, text=tcp_connect_scan, font=("Arial", 13))
+    tcp_connect_scan_label.pack()
+
+    # SYN Scan
+    syn_scan = pcap_reader.syn_scan_pcap(file_path, ip_whitelist)
+    syn_scan_label = ttk.Label(pcap_window, text=syn_scan, font=("Arial", 13))
+    syn_scan_label.pack()
+
+    # X-Mas scan
+    xmas_scan = pcap_reader.xmas_scan_pcap(file_path, ip_whitelist)
+    xmas_scan_label = ttk.Label(pcap_window, text=xmas_scan, font=("Arial", 13))
+    xmas_scan_label.pack()
+
+    # Null Scan
+    null_scan = pcap_reader.null_scan_pcap(file_path, ip_whitelist)
+    null_scan_label = ttk.Label(pcap_window, text=null_scan, font=("Arial", 13))
+    null_scan_label.pack()
+
+    # DNS/ARP Spoofing 
+    dns_arp_spoof = pcap_reader.dns_arp_spoof_pcap(file_path, ip_whitelist)
+    dns_arp_spoof_label = ttk.Label(pcap_window, text=dns_arp_spoof, font=("Arial", 13))
+    dns_arp_spoof_label.pack()
+
+    # SSH Brute Force
+    ssh_brute_force = pcap_reader.ssh_brute_force_pcap(file_path, ip_whitelist)
+    ssh_brute_force_label = ttk.Label(pcap_window, text=ssh_brute_force, font=("Arial", 13))
+    ssh_brute_force_label.pack()
+
+    # Command Injection 
+    command_injection = pcap_reader.command_injection_pcap(file_path, ip_whitelist)
+    command_injection_label = ttk.Label(pcap_window, text=command_injection, font=("Arial", 13))
+    command_injection_label.pack()
+
+    # SQL Injection
+    sql_injection = pcap_reader.sql_injection_pcap(file_path, ip_whitelist)
+    sql_injection_label = ttk.Label(pcap_window, text=sql_injection, font=("Arial", 13))
+    sql_injection_label.pack()
+
+
     stop_button = ttk.Button(pcap_window, text="Go Back", command=stop_analysis, style="TButton")
     stop_button.pack(pady=20)
 
