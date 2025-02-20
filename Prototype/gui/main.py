@@ -118,14 +118,23 @@ def open_pcap_page():
     # alert_label = ttk.Label(pcap_window, text="Analysis in progress...", font=("Arial", 14), foreground="green")
     # alert_label.pack(pady=20)
     
+    no_risk_icon = tk.PhotoImage(file="icons/checkmark.png")
+    low_risk_icon = tk.PhotoImage(file="icons/low_risk.png")
+    medium_risk_icon = tk.PhotoImage(file="icons/medium_risk.png")
+    high_risk_icon = tk.PhotoImage(file="icons/high_risk.png")
+
     file_path = selected_file.get()
 
     # SYN Flood
     syn_flood, detected = pcap_reader.syn_flood_pcap(file_path, ip_whitelist)
     if detected:
+        icon_label = ttk.Label(pcap_window, image=medium_risk_icon)
+        icon_label.pack(side="left", padx=5)
         syn_flood_label = ttk.Label(pcap_window, text=syn_flood, font=("Arial", 13))
         syn_flood_label.pack()
     else:
+        icon_label = ttk.Label(pcap_window, image=no_risk_icon)
+        icon_label.pack(side="left", padx=5)
         syn_flood_label = ttk.Label(pcap_window, text=syn_flood, font=("Arial", 13))
         syn_flood_label.pack()
 
@@ -178,7 +187,6 @@ def open_pcap_page():
     sql_injection = pcap_reader.sql_injection_pcap(file_path, ip_whitelist)
     sql_injection_label = ttk.Label(pcap_window, text=sql_injection, font=("Arial", 13))
     sql_injection_label.pack()
-
 
     stop_button = ttk.Button(pcap_window, text="Go Back", command=stop_analysis, style="TButton")
     stop_button.pack(pady=20)
