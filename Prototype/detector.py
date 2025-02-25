@@ -37,6 +37,10 @@ ssh_payloads = {}
 
 ip_whitelist = set()
 
+import queue
+
+alert_queue = queue.Queue()
+
 # Host IP address
 local_ip = socket.gethostbyname(socket.gethostname())
 
@@ -48,34 +52,75 @@ def display_on_gui(attack_type, packet, info=None):
     if info == "TCP" and type(info) != set:
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
+        
+        # alert = f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
+
+        # alert_queue.put(alert)
+
+        return [f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}",
+                f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"]
+
     if info == "UDP":
         print(f"Source IP and Port: {packet[IP].src}:{packet[UDP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[UDP].dport}")
+
+        return [f"Source IP and Port: {packet[IP].src}:{packet[UDP].sport}",
+                f"Destination IP and Port: {packet[IP].dst}:{packet[UDP].dport}"]
+
     if info == "ICMP":
         print(f"Source IP: {packet[IP].src}")
         print(f"Destination IP: {packet[IP].dst}")
+
+        return [f"Source IP: {packet[IP].src}",
+                f"Destination IP: {packet[IP].dst}"]
+
     if (attack_type == "SYN SCAN" or attack_type == "TCP CONNECT SCAN") and type(info) == list:
         print(f"Source IP: {packet[IP].src}")
         print(f"Destination IP: {packet[IP].dst}")
         print(f"List of scanned ports: {info}")
+
+        return [f"Source IP: {packet[IP].src}",
+                f"Destination IP: {packet[IP].dst}"
+                f"List of scanned ports: {info}"]
     
     if attack_type == "ARP SPOOFING":
         print(f"Source Mac Address: {info}")
+
+        return [f"Source Mac Address: {info}"]
+    
     if attack_type == "DNS SPOOFING":
         print(f"Affected Domain: {info}")
+
+        return [f"Affected Domain: {info}"]
+    
     if attack_type == "SSH BRUTE FORCE":
+        payload = []
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
-        for payload in info:
-            print(payload)
+        for p in info:
+            print(p)
+            payload.insert(p)
+
+        return [f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}",
+                f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}",
+                payload]
+    
     if attack_type == "COMMAND INJECTION":
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
         print(f"Command Detected: {info}")
+
+        return [f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}",
+                f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}",
+                f"Command Detected: {info}"]
+
     if attack_type == "SQL INJECTION":
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
         print(f"Command Detected: {info}")
+
+        return [f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}",
+                f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"]
 
 # Writes packet info to a log file
 def write_to_log(attack_type, packet, info=None):

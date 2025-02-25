@@ -11,6 +11,8 @@ sys.path.append(detector_path)
 import detector
 import pcap_reader
 
+import queue
+
 def toggle_file_upload():
     if analysis_mode.get() == "pcap":
         file_button.pack(pady=5, before=start_button)
@@ -105,6 +107,10 @@ def open_realtime_page():
     
     ttk.Label(analysis_window, text="Real-Time Alerts", font=("Arial", 16)).pack(pady=20)
     
+    if len(whitelisted_ip) != 0:
+        whitelist_label = ttk.Label(analysis_window, text=f"Whitelisted IPs: {whitelisted_ip}", font=("Arial", 14), foreground="blue")
+        whitelist_label.pack(pady=10)
+
     alert_label = ttk.Label(analysis_window, text="No threats detected...", font=("Arial", 14), foreground="green")
     alert_label.pack(pady=20)
     
@@ -118,9 +124,13 @@ def open_pcap_page():
     pcap_window = tk.Toplevel(root)
     pcap_window.title("PCAP Analysis")
     pcap_window.geometry("600x800")
-    
+
     ttk.Label(pcap_window, text="PCAP Analysis Results", font=("Arial", 16)).pack(pady=20)
     
+    if len(whitelisted_ip) != 0:
+        whitelist_label = ttk.Label(pcap_window, text=f"Whitelisted IPs: {whitelisted_ip}", font=("Arial", 14), foreground="blue")
+        whitelist_label.pack(pady=10)
+
     # alert_label = ttk.Label(pcap_window, text="Analysis in progress...", font=("Arial", 14), foreground="green")
     # alert_label.pack(pady=20)
     
@@ -213,6 +223,16 @@ def process_packet(packet):
     if alert:
         print(f"Alert generated: {alert}")
         root.after(0, update_alert, alert)
+
+    alert_queue = queue.Queue()
+    if not alert_queue.empty():
+        print("ALERT GENERATED!")
+        print(alert_queue)
+    # if alert_queue.empty():
+    #     print("No alert...")
+    #     import time
+    #     time.sleep(2)
+    
 
 def update_alert(alert):
     alert_label.config(text=alert, foreground="red")
