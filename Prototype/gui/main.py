@@ -8,6 +8,8 @@ import os
 detector_path = os.path.abspath("../")
 sys.path.append(detector_path)
 
+from detector import shared_alert
+
 import detector
 import pcap_reader
 
@@ -223,15 +225,11 @@ def process_packet(packet):
     if alert:
         print(f"Alert generated: {alert}")
         root.after(0, update_alert, alert)
-
-    alert_queue = queue.Queue()
-    if not alert_queue.empty():
+    
+    if len(shared_alert) != 0:
         print("ALERT GENERATED!")
-        print(alert_queue)
-    # if alert_queue.empty():
-    #     print("No alert...")
-    #     import time
-    #     time.sleep(2)
+        print(shared_alert)
+        shared_alert.clear()
     
 
 def update_alert(alert):

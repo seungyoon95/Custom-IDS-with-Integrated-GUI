@@ -37,61 +37,58 @@ ssh_payloads = {}
 
 ip_whitelist = set()
 
-import queue
-
-alert_queue = queue.Queue()
-
 # Host IP address
 local_ip = socket.gethostbyname(socket.gethostname())
+
+shared_alert = []
 
 def display_on_gui(attack_type, packet, info=None):
     print("\n===========================================")
     print(datetime.now())
     print(f"Attack Type: {attack_type}")
 
+    shared_alert.append(datetime.now())
+    shared_alert.append(f"Attack Type: {attack_type}")
+
     if info == "TCP" and type(info) != set:
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
-        
-        # alert = f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
 
-        # alert_queue.put(alert)
-
-        return [f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}",
-                f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"]
+        shared_alert.append(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
+        shared_alert.append(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
 
     if info == "UDP":
         print(f"Source IP and Port: {packet[IP].src}:{packet[UDP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[UDP].dport}")
 
-        return [f"Source IP and Port: {packet[IP].src}:{packet[UDP].sport}",
-                f"Destination IP and Port: {packet[IP].dst}:{packet[UDP].dport}"]
+        shared_alert.append(f"Source IP and Port: {packet[IP].src}:{packet[UDP].sport}")
+        shared_alert.append(f"Destination IP and Port: {packet[IP].dst}:{packet[UDP].dport}")
 
     if info == "ICMP":
         print(f"Source IP: {packet[IP].src}")
         print(f"Destination IP: {packet[IP].dst}")
 
-        return [f"Source IP: {packet[IP].src}",
-                f"Destination IP: {packet[IP].dst}"]
+        shared_alert.append(f"Source IP: {packet[IP].src}")
+        shared_alert.append(f"Destination IP: {packet[IP].dst}")
 
     if (attack_type == "SYN SCAN" or attack_type == "TCP CONNECT SCAN") and type(info) == list:
         print(f"Source IP: {packet[IP].src}")
         print(f"Destination IP: {packet[IP].dst}")
         print(f"List of scanned ports: {info}")
 
-        return [f"Source IP: {packet[IP].src}",
-                f"Destination IP: {packet[IP].dst}"
-                f"List of scanned ports: {info}"]
+        shared_alert.append(f"Source IP: {packet[IP].src}")
+        shared_alert.append(f"Destination IP: {packet[IP].dst}")
+        shared_alert.append(f"List of scanned ports: {info}")
     
     if attack_type == "ARP SPOOFING":
         print(f"Source Mac Address: {info}")
 
-        return [f"Source Mac Address: {info}"]
+        shared_alert.append(f"Source Mac Address: {info}")
     
     if attack_type == "DNS SPOOFING":
         print(f"Affected Domain: {info}")
 
-        return [f"Affected Domain: {info}"]
+        shared_alert.append(f"Affected Domain: {info}")
     
     if attack_type == "SSH BRUTE FORCE":
         payload = []
@@ -101,26 +98,27 @@ def display_on_gui(attack_type, packet, info=None):
             print(p)
             payload.insert(p)
 
-        return [f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}",
-                f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}",
-                payload]
+        shared_alert.append(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
+        shared_alert.append(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
+        shared_alert.append(payload)
     
     if attack_type == "COMMAND INJECTION":
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
         print(f"Command Detected: {info}")
 
-        return [f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}",
-                f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}",
-                f"Command Detected: {info}"]
+        shared_alert.append(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
+        shared_alert.append(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
+        shared_alert.append(f"Command Detected: {info}")
 
     if attack_type == "SQL INJECTION":
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
         print(f"Command Detected: {info}")
 
-        return [f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}",
-                f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"]
+        shared_alert.append(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
+        shared_alert.append(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
+        shared_alert.append(f"Command Detected: {info}")
 
 # Writes packet info to a log file
 def write_to_log(attack_type, packet, info=None):
