@@ -13,7 +13,7 @@ import pcap_reader
 
 def toggle_file_upload():
     if analysis_mode.get() == "pcap":
-        file_button.pack(pady=10, before=start_button)
+        file_button.pack(pady=5, before=start_button)
         file_label.pack(pady=5, before=start_button)
 
         delivery_label.pack_forget()
@@ -58,6 +58,13 @@ def validate_start_button():
         else:
             start_button.config(state=tk.DISABLED)
 
+def validate_ip_remove_button():
+    selected_index = ip_list.curselection()
+    if selected_index:
+        ip_remove_button.config(state=tk.NORMAL)
+    else:
+        ip_remove_button.config(state=tk.DISABLED)
+
 def start_analysis():
     if analysis_mode.get() == "real-time":
         global ip_whitelist, analysis_mode_selected, alert_methods
@@ -89,13 +96,12 @@ def start_analysis():
 
         # pcap_reader.run_pcap_analyzer(file_path)
         
-
 def open_realtime_page():
     global alert_label, analysis_window
     
     analysis_window = tk.Toplevel(root)
     analysis_window.title("Real-Time Analysis")
-    analysis_window.geometry("1200x800")
+    analysis_window.geometry("600x800")
     
     ttk.Label(analysis_window, text="Real-Time Alerts", font=("Arial", 16)).pack(pady=20)
     
@@ -111,7 +117,7 @@ def open_pcap_page():
 
     pcap_window = tk.Toplevel(root)
     pcap_window.title("PCAP Analysis")
-    pcap_window.geometry("1200x800")
+    pcap_window.geometry("600x800")
     
     ttk.Label(pcap_window, text="PCAP Analysis Results", font=("Arial", 16)).pack(pady=20)
     
@@ -225,10 +231,32 @@ def add_ip():
     if ip and ip not in ip_list.get(0, tk.END):
         ip_list.insert(tk.END, ip)
         whitelisted_ip.add(ip)
+        print(f"Current list of whitelisted IP: {whitelisted_ip}")
     ip_entry.delete(0, tk.END)
 
+def remove_ip():
+    try:
+        selected_index = ip_list.curselection()
+        if selected_index:
+            ip_remove_button.config(state=tk.NORMAL)
+            index = selected_index[0]
+            ip_string = ip_list.get(index)
+            ip_list.delete(index)
+             
+            if ip_string in whitelisted_ip:
+                whitelisted_ip.discard(ip_string)
+                print(f"Removed IP: {ip_string}")
+            else:
+                print(f"attempted to remove: {ip_string}")
+                print(f"IP doesn't exist in set, current set: {whitelisted_ip}")
+        else:
+            ip_remove_button.config(state=tk.DISABLED)
+    except IndexError:
+        print("Error removing whitelisted IP")
+
 def main():
-    global root, ip_entry, ip_list, analysis_mode, selected_file, file_button, start_button, file_label
+    global root, ip_entry, ip_list, analysis_mode, selected_file, file_label
+    global file_button, start_button, ip_remove_button
     global whitelisted_ip
 
     global gui_display_var, log_var, email_var
@@ -245,24 +273,48 @@ def main():
 
     root = tk.Tk()
     root.title("Custom IDS")
-    root.geometry("1200x800")
+    root.geometry("600x800")
     
     style = ttk.Style()
     style.configure("TButton", font=("Arial", 14), padding=10)
     style.configure("TRadiobutton", font=("Arial", 14))
     
     ip_frame = ttk.Frame(root)
-    ip_frame.pack(pady=10)
-    ttk.Label(ip_frame, text="Whitelist IP Address:", font=("Arial", 14)).pack(side=tk.LEFT)
-    ip_entry = ttk.Entry(ip_frame, font=("Arial", 14), width=20)
-    ip_entry.pack(side=tk.LEFT, padx=10)
-    ip_add_button = ttk.Button(ip_frame, text="Add", command=add_ip, style="TButton")
-    ip_add_button.pack(side=tk.LEFT)
+    ip_frame.pack(pady=10, padx=30)
+    ttk.Label(ip_frame, text="Enter IP Address to whitelist below:", font=("Arial", 14), justify=tk.CENTER).pack(pady=10)
+
+    ip_entry = ttk.Entry(ip_frame, font=("Arial", 14), width=30, justify=tk.CENTER)
+    ip_entry.pack(side=tk.LEFT, pady=10, padx=10)
     
+    button_frame = ttk.Frame(root)
+    button_frame.pack(pady=10, padx=10)
+
+    ip_add_button = ttk.Button(button_frame, text="Add", command=add_ip, style="TButton")
+    ip_add_button.pack(side=tk.LEFT, padx=10)
+
+    ip_remove_button = ttk.Button(button_frame, text="Remove", command=remove_ip, style="TButton")
+    ip_remove_button.pack(side=tk.LEFT, padx=10)
+
     ip_list_frame = ttk.Frame(root)
-    ip_list_frame.pack(pady=10, padx=50, fill=tk.X)
-    ip_list = tk.Listbox(ip_list_frame, height=10, font=("Arial", 14), width=50, justify=tk.CENTER)
-    ip_list.pack()
+    ip_list_frame.pack(pady=10)
+
+    listbox_frame = ttk.Frame(ip_list_frame)
+    listbox_frame.pack(fill=tk.X, expand=True)
+
+    ip_list = tk.Listbox(listbox_frame, height=10, font=("Arial", 14), width=30, justify=tk.CENTER, selectmode=tk.SINGLE)
+    ip_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    scrollbar = ttk.Scrollbar(listbox_frame, orient=tk.VERTICAL, command=ip_list.yview)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    ip_list.config(yscrollcommand=scrollbar.set)
+
+    ip_list.config(
+        fg="gray",
+        selectbackground="darkblue",
+        selectforeground="white",
+        bd=1,
+        relief="solid",
+    )
     
     analysis_mode = tk.StringVar(value="real-time")
     ttk.Label(root, text="Select Analysis Mode:", font=("Arial", 14)).pack(pady=10)
@@ -291,6 +343,8 @@ def main():
     
     start_button = ttk.Button(root, text="Start IDS", command=start_analysis, style="TButton")
     start_button.pack(pady=20)
+
+    validate_start_button()
     
     root.mainloop()
 
