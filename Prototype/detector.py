@@ -218,16 +218,18 @@ def alert_to_email(attack_type, packet, email_address, info=None):
     
     if attack_type == "SSH BRUTE FORCE":
         payload = []
-        body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
-        body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
+        
         for p in info:
             payload.insert(p)
+        
+        body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
+        body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
         body += f"{payload}"
     
     if attack_type == "COMMAND INJECTION":
         body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
         body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
-        body += f"Command Detected: {info}")
+        body += f"Command Detected: {info}"
 
     if attack_type == "SQL INJECTION":
         body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
