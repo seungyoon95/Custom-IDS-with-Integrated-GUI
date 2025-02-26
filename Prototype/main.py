@@ -1,3 +1,7 @@
+import detector
+import pcap_reader
+
+
 import tkinter as tk
 from tkinter import ttk, filedialog
 from scapy.all import sniff
@@ -5,15 +9,6 @@ import threading
 import sys
 import os
 
-detector_path = os.path.abspath("../")
-sys.path.append(detector_path)
-
-from detector import shared_alert
-
-import detector
-import pcap_reader
-
-import queue
 
 def toggle_email_entry():
     if email_var.get():
@@ -112,14 +107,20 @@ def start_analysis():
         # pcap_reader.run_pcap_analyzer(file_path)
         
 def open_realtime_page():
-    global alert_label, analysis_window
+    global alert_label, analysis_window, canvas
     
     analysis_window = tk.Toplevel(root)
     analysis_window.title("Real-Time Analysis")
     analysis_window.geometry("600x800")
-    
-    ttk.Label(analysis_window, text="Real-Time Alerts", font=("Arial", 16)).pack(pady=20)
-    
+
+    top_bar = tk.Frame(analysis_window)
+    top_bar.pack(fill=tk.X, padx=10, pady=5)
+
+    ttk.Label(top_bar, text="Real-Time Alerts", font=("Arial", 16)).pack(side=tk.LEFT, pady=20)
+
+    stop_button = ttk.Button(top_bar, text="Stop IDS", command=stop_analysis, style="TButton")
+    stop_button.pack(pady=10, side=tk.RIGHT)
+
     if len(whitelisted_ip) != 0:
         whitelist_label = ttk.Label(analysis_window, text=f"Whitelisted IPs: {whitelisted_ip}", font=("Arial", 14), foreground="blue")
         whitelist_label.pack(pady=10)
@@ -127,8 +128,6 @@ def open_realtime_page():
     alert_label = ttk.Label(analysis_window, text="No threats detected...", font=("Arial", 14), foreground="green")
     alert_label.pack(pady=20)
     
-    stop_button = ttk.Button(analysis_window, text="Stop IDS", command=stop_analysis, style="TButton")
-    stop_button.pack(pady=20)
 
 def open_pcap_page():
     global alert_label, pcap_window
@@ -237,15 +236,21 @@ def process_packet(packet):
         user_email = None
 
     alert = detector.attack_analyzer(packet, whitelisted_ip, log, gui_display, email, user_email)
+        
+    if len(detector.shared_alert) != 0:
+        alert_label.pack_forget()
     
-    if alert:
-        print(f"Alert generated: {alert}")
-        root.after(0, update_alert, alert)
-    
-    if len(shared_alert) != 0:
         print("ALERT GENERATED!")
-        print(shared_alert)
-        shared_alert.clear()
+        print(detector.shared_alert)
+
+        alert_container = tk.Frame(analysis_window, bd=2, relief="ridge",padx=5, pady=5)
+        alert_container.pack(fill="x", pady=5)
+
+        for alert in detector.shared_alert:
+            alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 12, "bold"))
+            alert_detail.pack(anchor="w", pady=2, padx=5)
+
+        detector.shared_alert.clear()
     
 
 def update_alert(alert):
