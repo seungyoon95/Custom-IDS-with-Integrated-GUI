@@ -230,7 +230,11 @@ def process_packet(packet):
     gui_display = gui_display_var.get()
     log = log_var.get()
     email = email_var.get()
-    user_email = email_entry.get().strip()
+
+    if email_var.get():
+        user_email = email_entry.get().strip()
+    else:
+        user_email = None
 
     alert = detector.attack_analyzer(packet, whitelisted_ip, log, gui_display, email, user_email)
     

@@ -13,6 +13,7 @@ from scapy.layers.l2 import ARP
 from scapy.layers.dns import DNS, DNSRR
 
 
+import credential
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -177,19 +178,79 @@ def write_to_log(attack_type, packet, info=None):
             f.write(f"\nCommand Detected: {info}")
     
 
-import credential
-
-def alert_to_email(attack_type, packet, info=None):
+def alert_to_email(attack_type, packet, email_address, info=None):
     smtp_server = 'smtp.gmail.com'
     smtp_port = 587
     from_email = credential.email
     from_password = credential.password
 
+    current_time = datetime.now()
+
+    body = ""
+
+    body += current_time.strftime("%Y-%m-%d %H:%M:%S")
+    body += f"\nAttack Type: {attack_type}"
+
+    if info == "TCP" and type(info) != set:
+        body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
+        body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
+
+    if info == "UDP":
+        body += f"Source IP and Port: {packet[IP].src}:{packet[UDP].sport}"
+        body += f"Destination IP and Port: {packet[IP].dst}:{packet[UDP].dport}"
+
+    if info == "ICMP":
+        body += f"Source IP: {packet[IP].src}"
+        body += f"Destination IP: {packet[IP].dst}"
+
+
+    if (attack_type == "SYN SCAN" or attack_type == "TCP CONNECT SCAN") and type(info) == list:
+        body += f"Source IP: {packet[IP].src}"
+        body += f"Destination IP: {packet[IP].dst}"
+        body += f"List of scanned ports: {info}"
+
+    if attack_type == "ARP SPOOFING":
+        body += f"Source Mac Address: {info}"
+
+    
+    if attack_type == "DNS SPOOFING":
+        body += f"Affected Domain: {info}"
+    
+    if attack_type == "SSH BRUTE FORCE":
+        payload = []
+        body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
+        body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
+        for p in info:
+            payload.insert(p)
+        body += f"{payload}"
+    
+    if attack_type == "COMMAND INJECTION":
+        body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
+        body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
+        body += f"Command Detected: {info}")
+
+    if attack_type == "SQL INJECTION":
+        body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
+        body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
+        body += f"Command Detected: {info}"
+
     msg = MIMEMultipart()
     msg['From'] = from_email
-    msg['To'] = to_email
-    msg['Subject'] = subject
+    msg['To'] = email_address
+    msg['Subject'] = "Potential Threat Found from the IDS"
     msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(from_email, from_password)
+        text = msg.as_string()
+        server.sendmail(from_email, email_address, text)
+        print("Email sent successfully")
+    except Exception as e:
+        print(f"Email delivery was not successful due to an error: {e}")
+    finally:
+        server.quit()
 
 def ip_whitelisting(ip_address):
     for ip in ip_address:
@@ -226,7 +287,7 @@ def syn_flood(packet, ip_whitelist, log, gui_display, email, email_address):
                         if gui_display:
                             display_on_gui("SYN FLOOD", packet, "TCP")
                         if email:
-                            alert_to_email("SYN FLOOD", packet, "TCP")
+                            alert_to_email("SYN FLOOD", packet, email_address, "TCP")
 
             elif packet[TCP].flags == 'A':
                 if (source_ip, dst_ip) in pending_handshake:
@@ -256,7 +317,7 @@ def udp_flood(packet, ip_whitelist, log, gui_display, email, email_address):
                     if gui_display:
                         display_on_gui("UDP FLOOD", packet, "UDP")
                     if email:
-                        alert_to_email("UDP FLOOD", packet, "UDP")
+                        alert_to_email("UDP FLOOD", packet, email_address, "UDP")
 
 
 # Detects ICMP Flood Attack based on given timeframe and threshold
@@ -277,7 +338,7 @@ def icmp_flood(packet, ip_whitelist, log, gui_display, email, email_address):
                     if gui_display:
                         display_on_gui("ICMP FLOOD", packet, "ICMP")
                     if email:
-                        alert_to_email("ICMP FLOOD", packet, "ICMP")
+                        alert_to_email("ICMP FLOOD", packet, email_address, "ICMP")
 
 
 def type_flood(packet, ip_whitelist, log, gui_display, email, email_address):
@@ -316,7 +377,7 @@ def tcp_connect_scan(packet, ip_whitelist, log, gui_display, email, email_addres
                     if gui_display:
                         display_on_gui("TCP CONNECT SCAN", packet, list(completed_handshake[source_ip].keys()))
                     if email:
-                        alert_to_email("TCP CONNECT SCAN", packet, list(completed_handshake[source_ip].keys()))
+                        alert_to_email("TCP CONNECT SCAN", packet, email_address, list(completed_handshake[source_ip].keys()))
 
 
 def syn_scan(packet, ip_whitelist, log, gui_display, email, email_address):
@@ -346,7 +407,7 @@ def syn_scan(packet, ip_whitelist, log, gui_display, email, email_address):
                     if gui_display:
                         display_on_gui("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
                     if email:
-                        alert_to_email("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
+                        alert_to_email("SYN SCAN", packet, email_address, list(syn_scans[source_ip].keys()))
 
 
 def xmas_scan(packet, ip_whitelist, log, gui_display, email, email_address):
@@ -359,7 +420,7 @@ def xmas_scan(packet, ip_whitelist, log, gui_display, email, email_address):
             if gui_display:
                 display_on_gui("XMAS SCAN", packet, "TCP")
             if email:
-                alert_to_email("XMAS SCAN", packet, "TCP")
+                alert_to_email("XMAS SCAN", packet, email_address, "TCP")
 
 
 def null_scan(packet, ip_whitelist, log, gui_display, email, email_address):
@@ -372,7 +433,7 @@ def null_scan(packet, ip_whitelist, log, gui_display, email, email_address):
             if gui_display:
                 display_on_gui("NULL SCAN", packet, "TCP")
             if email:
-                alert_to_email("NULL SCAN", packet, "TCP")            
+                alert_to_email("NULL SCAN", packet, email_address, "TCP")            
 
 
 def type_scan(packet, ip_whitelist, log, gui_display, email, email_address):
@@ -394,7 +455,7 @@ def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address):
                 if gui_display:
                     display_on_gui("ARP SPOOFING", packet, src_mac)
                 if email:
-                    alert_to_email("ARP SPOOFING", packet, src_mac)
+                    alert_to_email("ARP SPOOFING", packet, email_address, src_mac)
                 
             else:
                 arp_cache[src_ip] = src_mac
@@ -442,7 +503,7 @@ def ssh_brute_force(packet, ip_whitelist, log, gui_display, email, email_address
                 if gui_display:
                     display_on_gui("SSH BRUTE FORCE", packet, ssh_payloads[src_ip])
                 if email:
-                    alert_to_email("SSH BRUTE FORCE", packet, ssh_payloads[src_ip])
+                    alert_to_email("SSH BRUTE FORCE", packet, email_address, ssh_payloads[src_ip])
 
 
 def command_injection(packet, ip_whitelist, log, gui_display, email, email_address):
@@ -476,7 +537,7 @@ def command_injection(packet, ip_whitelist, log, gui_display, email, email_addre
                 if gui_display:
                     display_on_gui("COMMAND INJECTION", packet, pattern)
                 if email:
-                    alert_to_email("COMMAND INJECTION", packet, pattern)
+                    alert_to_email("COMMAND INJECTION", packet, email_address, pattern)
 
 
 def sql_injection(packet, ip_whitelist, log, gui_display, email, email_address):
@@ -497,7 +558,7 @@ def sql_injection(packet, ip_whitelist, log, gui_display, email, email_address):
                 if gui_display:
                     display_on_gui("SQL INJECTION", packet, pattern)
                 if email:
-                    alert_to_email("SQL INJECTION", packet, pattern)
+                    alert_to_email("SQL INJECTION", packet, email_address, pattern)
 
 
 def type_other(packet, ip_whitelist, log, gui_display, email, email_address):
