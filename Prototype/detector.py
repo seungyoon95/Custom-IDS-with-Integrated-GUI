@@ -13,6 +13,11 @@ from scapy.layers.l2 import ARP
 from scapy.layers.dns import DNS, DNSRR
 
 
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+
 # Dictionaries to hold packet counts from 
 syn_count = defaultdict(list)
 udp_count = defaultdict(list)
@@ -172,8 +177,19 @@ def write_to_log(attack_type, packet, info=None):
             f.write(f"\nCommand Detected: {info}")
     
 
+import credential
+
 def alert_to_email(attack_type, packet, info=None):
-    pass
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587
+    from_email = credential.email
+    from_password = credential.password
+
+    msg = MIMEMultipart()
+    msg['From'] = from_email
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
 
 def ip_whitelisting(ip_address):
     for ip in ip_address:
@@ -185,7 +201,7 @@ def ip_whitelisting(ip_address):
 
 
 # Detects SYN Flood Attack based on given timeframe and threshold
-def syn_flood(packet, ip_whitelist, log, gui_display, email):
+def syn_flood(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(TCP) and packet.haslayer(IP):
         source_ip = packet[IP].src
         dst_ip = packet[IP].dst
@@ -219,7 +235,7 @@ def syn_flood(packet, ip_whitelist, log, gui_display, email):
                 
 
 # Detects UDP Flood Attack based on given timeframe and threshold
-def udp_flood(packet, ip_whitelist, log, gui_display, email):
+def udp_flood(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(UDP) and packet.haslayer(IP):
         whitelisted_port = [53, 80, 123, 443]
 
@@ -244,7 +260,7 @@ def udp_flood(packet, ip_whitelist, log, gui_display, email):
 
 
 # Detects ICMP Flood Attack based on given timeframe and threshold
-def icmp_flood(packet, ip_whitelist, log, gui_display, email):
+def icmp_flood(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(ICMP) and packet.haslayer(IP):
         source_ip = packet[IP].src
         current_time = time.time()
@@ -264,13 +280,13 @@ def icmp_flood(packet, ip_whitelist, log, gui_display, email):
                         alert_to_email("ICMP FLOOD", packet, "ICMP")
 
 
-def type_flood(packet, ip_whitelist, log, gui_display, email):
-    syn_flood(packet, ip_whitelist, log, gui_display, email)
-    udp_flood(packet, ip_whitelist, log, gui_display, email)
-    icmp_flood(packet, ip_whitelist, log, gui_display, email)
+def type_flood(packet, ip_whitelist, log, gui_display, email, email_address):
+    syn_flood(packet, ip_whitelist, log, gui_display, email, email_address)
+    udp_flood(packet, ip_whitelist, log, gui_display, email, email_address)
+    icmp_flood(packet, ip_whitelist, log, gui_display, email, email_address)
 
 
-def tcp_connect_scan(packet, ip_whitelist, log, gui_display, email):
+def tcp_connect_scan(packet, ip_whitelist, log, gui_display, email, email_address):
     whitelisted_port = [22, 53, 443]
     if packet.haslayer(TCP) and packet.haslayer(IP):
         source_ip = packet[IP].src
@@ -303,8 +319,7 @@ def tcp_connect_scan(packet, ip_whitelist, log, gui_display, email):
                         alert_to_email("TCP CONNECT SCAN", packet, list(completed_handshake[source_ip].keys()))
 
 
-
-def syn_scan(packet, ip_whitelist, log, gui_display, email):
+def syn_scan(packet, ip_whitelist, log, gui_display, email, email_address):
     whitelisted_port = [22, 53, 443]
     current_time = time.time()
 
@@ -334,7 +349,7 @@ def syn_scan(packet, ip_whitelist, log, gui_display, email):
                         alert_to_email("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
 
 
-def xmas_scan(packet, ip_whitelist, log, gui_display, email):
+def xmas_scan(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(TCP):
         tcp_flags = packet[TCP].flags
         source_ip = packet[IP].src
@@ -347,7 +362,7 @@ def xmas_scan(packet, ip_whitelist, log, gui_display, email):
                 alert_to_email("XMAS SCAN", packet, "TCP")
 
 
-def null_scan(packet, ip_whitelist, log, gui_display, email):
+def null_scan(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(TCP):
         tcp_flags = packet[TCP].flags
         source_ip = packet[IP].src
@@ -360,14 +375,14 @@ def null_scan(packet, ip_whitelist, log, gui_display, email):
                 alert_to_email("NULL SCAN", packet, "TCP")            
 
 
-def type_scan(packet, ip_whitelist, log, gui_display, email):
-    tcp_connect_scan(packet, ip_whitelist, log, gui_display, email)
-    syn_scan(packet, ip_whitelist, log, gui_display, email)
-    xmas_scan(packet, ip_whitelist, log, gui_display, email)
-    null_scan(packet, ip_whitelist, log, gui_display, email)
+def type_scan(packet, ip_whitelist, log, gui_display, email, email_address):
+    tcp_connect_scan(packet, ip_whitelist, log, gui_display, email, email_address)
+    syn_scan(packet, ip_whitelist, log, gui_display, email, email_address)
+    xmas_scan(packet, ip_whitelist, log, gui_display, email, email_address)
+    null_scan(packet, ip_whitelist, log, gui_display, email, email_address)
 
 
-def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email):
+def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address):
     arp_cache["192.168.1.1"] = "a8-fb-40-9d-d1-03" # for testing
     if packet.haslayer(ARP) and packet[ARP].op == 2:
         src_ip = packet[ARP].psrc
@@ -407,7 +422,7 @@ def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email):
     #         dns_records[domain] = (resolved_ip, current_time, 1)
 
 
-def ssh_brute_force(packet, ip_whitelist, log, gui_display, email):
+def ssh_brute_force(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(TCP) and packet[TCP].dport == 22:
         src_ip = packet[IP].src
 
@@ -430,7 +445,7 @@ def ssh_brute_force(packet, ip_whitelist, log, gui_display, email):
                     alert_to_email("SSH BRUTE FORCE", packet, ssh_payloads[src_ip])
 
 
-def command_injection(packet, ip_whitelist, log, gui_display, email):
+def command_injection(packet, ip_whitelist, log, gui_display, email, email_address):
     whitelisted_port = [80, 443]
 
     if packet.haslayer(Raw) and packet.haslayer(TCP) and packet[IP].src not in ip_whitelist and packet[TCP].dport not in whitelisted_port:
@@ -464,7 +479,7 @@ def command_injection(packet, ip_whitelist, log, gui_display, email):
                     alert_to_email("COMMAND INJECTION", packet, pattern)
 
 
-def sql_injection(packet, ip_whitelist, log, gui_display, email):
+def sql_injection(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(TCP) and packet.haslayer(Raw) and packet[IP].src not in ip_whitelist:
         payload = packet[Raw].load.decode(errors="ignore")
         patterns = [
@@ -485,18 +500,18 @@ def sql_injection(packet, ip_whitelist, log, gui_display, email):
                     alert_to_email("SQL INJECTION", packet, pattern)
 
 
-def type_other(packet, ip_whitelist, log, gui_display, email):
-    dns_arp_spoof(packet, ip_whitelist, log, gui_display, email)
-    ssh_brute_force(packet, ip_whitelist, log, gui_display, email)
-    command_injection(packet, ip_whitelist, log, gui_display, email)
-    sql_injection(packet, ip_whitelist, log, gui_display, email)
+def type_other(packet, ip_whitelist, log, gui_display, email, email_address):
+    dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address)
+    ssh_brute_force(packet, ip_whitelist, log, gui_display, email, email_address)
+    command_injection(packet, ip_whitelist, log, gui_display, email, email_address)
+    sql_injection(packet, ip_whitelist, log, gui_display, email, email_address)
 
 
 # Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
-def attack_analyzer(packet, ip_address=None, log=True, gui_display=False, email=False):
+def attack_analyzer(packet, ip_address=None, log=True, gui_display=False, email=False, email_address = None):
     ip_whitelist = ip_whitelisting(ip_address)
         
-    type_flood(packet, ip_whitelist, log, gui_display, email)
-    type_scan(packet, ip_whitelist, log, gui_display, email)
-    type_other(packet, ip_whitelist, log, gui_display, email)
+    type_flood(packet, ip_whitelist, log, gui_display, email, email_address)
+    type_scan(packet, ip_whitelist, log, gui_display, email, email_address)
+    type_other(packet, ip_whitelist, log, gui_display, email, email_address)
     

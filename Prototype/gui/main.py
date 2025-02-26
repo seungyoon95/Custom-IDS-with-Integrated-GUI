@@ -15,6 +15,17 @@ import pcap_reader
 
 import queue
 
+def toggle_email_entry():
+    if email_var.get():
+        email_label.pack(pady=5, before=start_button)
+        email_entry.pack(pady=5, before=start_button)
+    else:
+        email_label.pack_forget()
+        email_entry.pack_forget()
+        email_entry.delete(0, tk.END)
+
+    validate_start_button()
+
 def toggle_file_upload():
     if analysis_mode.get() == "pcap":
         file_button.pack(pady=5, before=start_button)
@@ -219,8 +230,9 @@ def process_packet(packet):
     gui_display = gui_display_var.get()
     log = log_var.get()
     email = email_var.get()
+    user_email = email_entry.get().strip()
 
-    alert = detector.attack_analyzer(packet, whitelisted_ip, log, gui_display, email)
+    alert = detector.attack_analyzer(packet, whitelisted_ip, log, gui_display, email, user_email)
     
     if alert:
         print(f"Alert generated: {alert}")
@@ -281,7 +293,11 @@ def main():
     global gui_display, log, email
     global delivery_label, gui_checkbox, log_checkbox, email_checkbox, alert_frame
 
+    global email_label, email_entry
+
     global sniff_running
+
+    sniff_running = False
 
     whitelisted_ip = set()
 
@@ -358,7 +374,11 @@ def main():
     log_checkbox.pack(side=tk.LEFT, padx=10)
     email_checkbox = ttk.Checkbutton(alert_frame, text="Email", variable=email_var, command=validate_start_button)
     email_checkbox.pack(side=tk.LEFT, padx=10)
-    
+
+    email_label = ttk.Label(root, text="Enter your email address below:")
+    email_entry = ttk.Entry(root, width=30)
+    email_checkbox.config(command=toggle_email_entry)
+
     start_button = ttk.Button(root, text="Start IDS", command=start_analysis, style="TButton")
     start_button.pack(pady=20)
 

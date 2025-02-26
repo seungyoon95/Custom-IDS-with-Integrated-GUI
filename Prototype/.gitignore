@@ -3,4 +3,4 @@ demo/
 logs/
 pcaps/
 testing/
-.env
+credential.py
