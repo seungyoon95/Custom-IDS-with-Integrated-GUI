@@ -154,17 +154,18 @@ def open_pcap_page():
     file_path = selected_file.get()
 
     # SYN Flood
-    syn_flood, detected = pcap_reader.syn_flood_pcap(file_path, ip_whitelist)
-    if detected:
-        icon_label = ttk.Label(pcap_window, image=medium_risk_icon)
-        icon_label.pack(side="left", padx=5)
-        syn_flood_label = ttk.Label(pcap_window, text=syn_flood, font=("Arial", 13))
-        syn_flood_label.pack()
-    else:
-        icon_label = ttk.Label(pcap_window, image=no_risk_icon)
-        icon_label.pack(side="left", padx=5)
-        syn_flood_label = ttk.Label(pcap_window, text=syn_flood, font=("Arial", 13))
-        syn_flood_label.pack()
+    syn_flood = pcap_reader.syn_flood_pcap(file_path, ip_whitelist)
+    # for alert in syn_flood:
+    #     syn_flood_label = ttk.Label(pcap_window, text=alert, font=("Arial", 13))
+    #     syn_flood_label.pack()
+
+    alert_container = tk.Frame(pcap_window, bd=2, relief="ridge",padx=5, pady=5)
+    alert_container.pack(fill="x", pady=5)
+
+    for alert in syn_flood:
+        alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 12, "bold"))
+        alert_detail.pack(anchor="w", pady=2, padx=5)
+
 
     # UDP Flood
     udp_flood = pcap_reader.udp_flood_pcap(file_path, ip_whitelist)

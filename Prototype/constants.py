@@ -1,4 +1,4 @@
-FLOOD_THRESHOLD = 500   # number of packets from single source before identifying as DOS attack
+FLOOD_THRESHOLD = 50   # number of packets from single source before identifying as DOS attack
 SCAN_THRESHOLD = 5      # number of ports before identifying as scan attempt
 
 MAX_PENDING = 50

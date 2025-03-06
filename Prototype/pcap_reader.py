@@ -32,6 +32,9 @@ def syn_flood_pcap(file_name, ip_whitelist):
         syn_count[src_ip].append(packet_time)
 
     attacker_ip = set()
+    dest_ip = []
+    attacker_port = []
+    dest_port = []
 
     for src_ip, timestamps in syn_count.items():
         timestamps.sort()
@@ -48,15 +51,29 @@ def syn_flood_pcap(file_name, ip_whitelist):
 
             if packet_count > threshold and src_ip not in ip_whitelist:
                 attacker_ip.add(src_ip)
+                dest_ip.append(packet.ip.dst)
+                attacker_port.append(packet[packet.transport_layer].srcport)
+                dest_port.append(packet[packet.transport_layer].dstport)
 
     capture.close()
 
     if attacker_ip:
+        for source_ip in attacker_ip:
+            alert = []
+            alert.append(timestamp)
+            alert.append("Attack Type: SYN FLOOD")
+            alert.append(f"Source IP and Port:{source_ip}:{attacker_port[0]}")
+            alert.append(f"Destination IP and Port: {dest_ip[0]}:{dest_port[0]}")
+
+            del attacker_port[0]
+            del dest_ip[0]
+            del dest_port[0]
+
         print(f"Potential SYN Flood Attacks detected from: {attacker_ip}")
-        return (f"Potential SYN Flood Attacks detected from: {attacker_ip}", True)
+        return (alert)
     else:
         print(f"No SYN Flood detected from {file_name}")
-        return ("No SYN Flood detected", False)
+        return ("No SYN Flood detected")
 
 
 def udp_flood_pcap(file_name, ip_whitelist):
