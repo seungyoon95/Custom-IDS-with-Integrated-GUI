@@ -32,6 +32,7 @@ def syn_flood_pcap(file_name, ip_whitelist):
         syn_count[src_ip].append(packet_time)
 
     attacker_ip = set()
+    attack_time = []
     dest_ip = []
     attacker_port = []
     dest_port = []
@@ -51,6 +52,7 @@ def syn_flood_pcap(file_name, ip_whitelist):
 
             if packet_count > threshold and src_ip not in ip_whitelist:
                 attacker_ip.add(src_ip)
+                attack_time.append(timestamp)
                 dest_ip.append(packet.ip.dst)
                 attacker_port.append(packet[packet.transport_layer].srcport)
                 dest_port.append(packet[packet.transport_layer].dstport)
@@ -60,20 +62,25 @@ def syn_flood_pcap(file_name, ip_whitelist):
     if attacker_ip:
         for source_ip in attacker_ip:
             alert = []
-            alert.append(timestamp)
-            alert.append("Attack Type: SYN FLOOD")
+            alert.append(attack_time[0])
+            alert.append("Attack Type: UDP FLOOD")
             alert.append(f"Source IP and Port:{source_ip}:{attacker_port[0]}")
             alert.append(f"Destination IP and Port: {dest_ip[0]}:{dest_port[0]}")
 
+            del attack_time[0]
             del attacker_port[0]
             del dest_ip[0]
             del dest_port[0]
 
         print(f"Potential SYN Flood Attacks detected from: {attacker_ip}")
-        return (alert)
+
+        return alert
     else:
+        alert = []
+        alert.append(f"SYN Flood Attack Not Detected!")
         print(f"No SYN Flood detected from {file_name}")
-        return ("No SYN Flood detected")
+    
+        return alert
 
 
 def udp_flood_pcap(file_name, ip_whitelist):
@@ -89,6 +96,10 @@ def udp_flood_pcap(file_name, ip_whitelist):
         udp_count[src_ip].append(packet_time)
 
     attacker_ip = set()
+    attack_time = []
+    dest_ip = []
+    attacker_port = []
+    dest_port = []
 
     for src_ip, timestamps in udp_count.items():
         timestamps.sort()
@@ -105,15 +116,34 @@ def udp_flood_pcap(file_name, ip_whitelist):
 
             if packet_count > threshold and src_ip not in ip_whitelist:
                 attacker_ip.add(src_ip)
+                attack_time.append(timestamp)
+                dest_ip.append(packet.ip.dst)
+                attacker_port.append(packet[packet.transport_layer].srcport)
+                dest_port.append(packet[packet.transport_layer].dstport)
 
     capture.close()
 
     if attacker_ip:
+        for source_ip in attacker_ip:
+            alert = []
+            alert.append(attack_time[0])
+            alert.append("Attack Type: SYN FLOOD")
+            alert.append(f"Source IP and Port:{source_ip}:{attacker_port[0]}")
+            alert.append(f"Destination IP and Port: {dest_ip[0]}:{dest_port[0]}")
+
+            del attack_time[0]
+            del attacker_port[0]
+            del dest_ip[0]
+            del dest_port[0]
+
         print(f"Potential UDP Flood Attacks detected from: {attacker_ip}")
-        return f"Potential UDP Flood Attacks detected from: {attacker_ip}"
+        return alert
     else:
+        alert = []
+        alert.append(f"UDP Flood Attack Not Detected!")
         print(f"No UDP Flood detected from {file_name}")
-        return "No UDP Flood detected"
+    
+        return alert
 
 
 def icmp_flood_pcap(file_name, ip_whitelist):
@@ -129,6 +159,8 @@ def icmp_flood_pcap(file_name, ip_whitelist):
         icmp_count[src_ip].append(packet_time)
 
     attacker_ip = set()
+    attack_time = []
+    dest_ip = []
 
     for src_ip, timestamps in icmp_count.items():
         timestamps.sort()
@@ -145,15 +177,30 @@ def icmp_flood_pcap(file_name, ip_whitelist):
 
             if packet_count > threshold and src_ip not in ip_whitelist:
                 attacker_ip.add(src_ip)
+                attack_time.append(timestamp)
+                dest_ip.append(packet.ip.dst)
 
     capture.close()
-
+    
     if attacker_ip:
-        print(f"Potential ICMP Flood Attacks detected from: {attacker_ip}")
-        return f"Potential ICMP Flood Attacks detected from: {attacker_ip}"
+        for source_ip in attacker_ip:
+            alert = []
+            alert.append(attack_time[0])
+            alert.append("Attack Type: ICMP FLOOD")
+            alert.append(f"Source IP:{source_ip}")
+            alert.append(f"Destination IP: {dest_ip[0]}")
+
+            del attack_time[0]
+            del dest_ip[0]
+
+        print(f"Potential UDP Flood Attacks detected from: {attacker_ip}")
+        return alert
     else:
+        alert = []
+        alert.append(f"ICMP Flood Attack Not Detected!")
         print(f"No ICMP Flood detected from {file_name}")
-        return "No ICMP Flood Detected"
+    
+        return alert
 
 
 def tcp_connect_scan_pcap(file_name, ip_whitelist):

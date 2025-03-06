@@ -152,12 +152,9 @@ def open_pcap_page():
     high_risk_icon = tk.PhotoImage(file="icons/high_risk.png")
 
     file_path = selected_file.get()
-
+    
     # SYN Flood
     syn_flood = pcap_reader.syn_flood_pcap(file_path, ip_whitelist)
-    # for alert in syn_flood:
-    #     syn_flood_label = ttk.Label(pcap_window, text=alert, font=("Arial", 13))
-    #     syn_flood_label.pack()
 
     alert_container = tk.Frame(pcap_window, bd=2, relief="ridge",padx=5, pady=5)
     alert_container.pack(fill="x", pady=5)
@@ -166,16 +163,25 @@ def open_pcap_page():
         alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 12, "bold"))
         alert_detail.pack(anchor="w", pady=2, padx=5)
 
-
     # UDP Flood
     udp_flood = pcap_reader.udp_flood_pcap(file_path, ip_whitelist)
-    udp_flood_label = ttk.Label(pcap_window, text=udp_flood, font=("Arial", 13))
-    udp_flood_label.pack()
+
+    alert_container = tk.Frame(pcap_window, bd=2, relief="ridge",padx=5, pady=5)
+    alert_container.pack(fill="x", pady=5)
+
+    for alert in udp_flood:
+        alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 12, "bold"))
+        alert_detail.pack(anchor="w", pady=2, padx=5)
 
     # ICMP Flood
     icmp_flood = pcap_reader.icmp_flood_pcap(file_path, ip_whitelist)
-    icmp_flood_label = ttk.Label(pcap_window, text=icmp_flood, font=("Arial", 13))
-    icmp_flood_label.pack()
+
+    alert_container = tk.Frame(pcap_window, bd=2, relief="ridge",padx=5, pady=5)
+    alert_container.pack(fill="x", pady=5)
+
+    for alert in icmp_flood:
+        alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 12, "bold"))
+        alert_detail.pack(anchor="w", pady=2, padx=5)
 
     # TCP Connect Scan
     tcp_connect_scan = pcap_reader.tcp_connect_scan_pcap(file_path, ip_whitelist)
