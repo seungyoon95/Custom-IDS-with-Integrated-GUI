@@ -37,7 +37,6 @@ syn_scans = {}
 arp_cache = {}
 dns_cache = {}
 
-dns_records = {}
 ssh_count = {}
 ssh_payloads = {}
 
@@ -462,27 +461,41 @@ def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address):
             else:
                 arp_cache[src_ip] = src_mac
 
-    # if packet.haslayer(DNS) and packet.haslayer(DNSRR):
-    #     print(packet.summary())
-    #     domain = packet[DNSRR].rrname.decode("utf-8")
-    #     resolved_ip = packet[DNSRR].rdata
-    #     current_time = time.time()
+    if packet.haslayer(DNS):
+        dns_layer = packet.getlayer(DNS)
+        current_time = time.time()
 
-    #     if domain in dns_records:
-    #         prev_ip, timestamp, change_count = dns_records[domain]
+        if dns_layer.qd:
+            dns_query = dns_layer.qd.qname.decode("utf-8")
 
-    #         if prev_ip != resolved_ip and (current_time - timestamp) <= constants.TIMEFRAME:
-    #             if change_count < 10:
-    #                 dns_records[domain] = (resolved_ip, current_time, change_count + 1)
-    #             else:
-    #                 if log:
-    #                     write_to_log("DNS SPOOFING", packet, domain)
-    #                 if gui_display:
-    #                     display_on_gui("DNS SPOOFING", packet, src_mac)
-    #                 if email:
-    #                     alert_to_email("DNS SPOOFING", packet, src_mac)
-    #     else:
-    #         dns_records[domain] = (resolved_ip, current_time, 1)
+            if dns_layer.haslayer(DNSRR):
+                dns_responses = []
+                
+                for answer in dns_layer.an:
+                    if answer.type == 1:
+                        dns_responses.append(str(answer.rdata))
+
+                if dns_responses:
+                    if dns_query in dns_cache:
+                        prev_ip, timestamp, change_count = dns_cache[dns_query]
+
+                        if prev_ip != dns_responses[0] and (current_time - timestamp) <= constants.TIMEFRAME:
+                            if change_count < 10:
+                                dns_cache[dns_query] = (dns_responses[0], current_time, change_count + 1)
+                            else:
+                                if log:
+                                    write_to_log("DNS SPOOFING", packet, dns_query)
+                                if gui_display:
+                                    display_on_gui("DNS SPOOFING", packet, dns_query)
+                                if email:
+                                    alert_to_email("DNS SPOOFING", packet, dns_query)
+                        else:
+                            dns_cache[dns_query] = (dns_responses[0], current_time, change_count + 1)
+                    else:
+                        dns_cache[dns_query] = (dns_responses[0], current_time, 1)
+                            
+
+        
 
 
 def ssh_brute_force(packet, ip_whitelist, log, gui_display, email, email_address):
