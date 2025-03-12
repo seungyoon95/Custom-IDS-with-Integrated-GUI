@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 from scapy.all import sniff
 import threading
+import time
 import sys
 import os
 
@@ -105,9 +106,10 @@ def start_analysis():
         open_pcap_page()
 
         # pcap_reader.run_pcap_analyzer(file_path)
-        
+
+
 def open_realtime_page():
-    global alert_label, analysis_window, canvas
+    global alert_label, analysis_window
     
     analysis_window = tk.Toplevel(root)
     analysis_window.title("Real-Time Analysis")
@@ -118,7 +120,7 @@ def open_realtime_page():
 
     ttk.Label(top_bar, text="Real-Time Alerts", font=("Arial", 16)).pack(side=tk.LEFT, pady=20)
 
-    stop_button = ttk.Button(top_bar, text="Stop IDS", command=stop_analysis, style="TButton")
+    stop_button = ttk.Button(top_bar, text="Go Back", command=stop_analysis, style="TButton")
     stop_button.pack(pady=10, side=tk.RIGHT)
 
     if len(whitelisted_ip) != 0:
@@ -128,28 +130,26 @@ def open_realtime_page():
     alert_label = ttk.Label(analysis_window, text="No threats detected...", font=("Arial", 14), foreground="green")
     alert_label.pack(pady=20)
     
-
 def open_pcap_page():
     global alert_label, pcap_window
-    ip_whitelist = list(ip_list.get(0, tk.END))
-
+    
     pcap_window = tk.Toplevel(root)
     pcap_window.title("PCAP Analysis")
     pcap_window.geometry("600x800")
 
-    ttk.Label(pcap_window, text="PCAP Analysis Results", font=("Arial", 16)).pack(pady=20)
+    top_bar = tk.Frame(pcap_window)
+    top_bar.pack(fill=tk.X, padx=10, pady=5)
+
+    ttk.Label(top_bar, text="PCAP Analysis Results", font=("Arial", 16)).pack(side=tk.LEFT, pady=20)
     
+    stop_button = ttk.Button(top_bar, text="Go Back", command=stop_analysis, style="TButton")
+    stop_button.pack(pady=10, side=tk.RIGHT)
+
     if len(whitelisted_ip) != 0:
         whitelist_label = ttk.Label(pcap_window, text=f"Whitelisted IPs: {whitelisted_ip}", font=("Arial", 14), foreground="blue")
         whitelist_label.pack(pady=10)
 
-    # alert_label = ttk.Label(pcap_window, text="Analysis in progress...", font=("Arial", 14), foreground="green")
-    # alert_label.pack(pady=20)
-    
-    no_risk_icon = tk.PhotoImage(file="icons/checkmark.png")
-    low_risk_icon = tk.PhotoImage(file="icons/low_risk.png")
-    medium_risk_icon = tk.PhotoImage(file="icons/medium_risk.png")
-    high_risk_icon = tk.PhotoImage(file="icons/high_risk.png")
+    ip_whitelist = list(ip_list.get(0, tk.END))
 
     file_path = selected_file.get()
 
@@ -163,14 +163,14 @@ def open_pcap_page():
             alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 12, "bold"))
             alert_detail.pack(anchor="w", pady=2, padx=5)
 
-    stop_button = ttk.Button(pcap_window, text="Go Back", command=stop_analysis, style="TButton")
-    stop_button.pack(pady=20)
+
 
 def run_realtime_analysis():
     sniff_running = True
 
     while sniff_running:
         sniff(prn=process_packet, store=0)
+
 
 def process_packet(packet):
     gui_display = gui_display_var.get()
@@ -199,7 +199,6 @@ def process_packet(packet):
 
         detector.shared_alert.clear()
     
-
 def update_alert(alert):
     alert_label.config(text=alert, foreground="red")
 
