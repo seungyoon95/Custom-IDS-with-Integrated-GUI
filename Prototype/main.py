@@ -105,8 +105,6 @@ def start_analysis():
         root.withdraw()
         open_pcap_page()
 
-        # pcap_reader.run_pcap_analyzer(file_path)
-
 
 def open_realtime_page():
     global alert_label, analysis_window
@@ -153,16 +151,29 @@ def open_pcap_page():
 
     file_path = selected_file.get()
 
+    canvas = tk.Canvas(pcap_window)
+    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    scrollbar = ttk.Scrollbar(pcap_window, orient="vertical", command=canvas.yview)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    content_frame = tk.Frame(canvas)
+    canvas.create_window((0, 0), window=content_frame, anchor="nw")
+
     pcap_analysis = pcap_reader.run_pcap_analyzer(file_path, ip_whitelist)
     
     for alerts in pcap_analysis:
-        alert_container = tk.Frame(pcap_window, bd=2, relief="ridge",padx=5, pady=5)
+        alert_container = tk.Frame(content_frame, bd=2, relief="ridge",padx=5, pady=5)
         alert_container.pack(fill="x", pady=5)
 
         for alert in alerts:
             alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 12, "bold"))
             alert_detail.pack(anchor="w", pady=2, padx=5)
 
+    content_frame.update_idletasks()
+    canvas.config(scrollregion=canvas.bbox("all"))
 
 
 def run_realtime_analysis():
