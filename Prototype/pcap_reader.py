@@ -9,16 +9,6 @@ import time
 import re
 
 
-ip_whitelist = set()
-
-def ip_whitelisting(ip_address):
-    if ip_address is not None and ip_address not in ip_whitelist:
-        ip_whitelist.add(ip_address)
-        print(f"IP: {ip_address} added to the whitelist")
-
-    return ip_whitelist
-
-
 def syn_flood_pcap(file_name, ip_whitelist):
     timeframe = constants.TIMEFRAME
     threshold = constants.FLOOD_THRESHOLD
@@ -31,11 +21,10 @@ def syn_flood_pcap(file_name, ip_whitelist):
         packet_time = packet.sniff_time
         syn_count[src_ip].append(packet_time)
 
-    attacker_ip = set()
-    attack_time = []
-    dest_ip = []
-    attacker_port = []
-    dest_port = []
+    attacker_ip = []
+
+    attacks = []
+    attack_info = []
 
     for src_ip, timestamps in syn_count.items():
         timestamps.sort()
@@ -50,37 +39,40 @@ def syn_flood_pcap(file_name, ip_whitelist):
                 start_time = timestamp
                 packet_count = 1
 
-            if packet_count > threshold and src_ip not in ip_whitelist:
-                attacker_ip.add(src_ip)
-                attack_time.append(timestamp)
-                dest_ip.append(packet.ip.dst)
-                attacker_port.append(packet[packet.transport_layer].srcport)
-                dest_port.append(packet[packet.transport_layer].dstport)
+            if packet_count > threshold and src_ip not in attacker_ip and src_ip not in ip_whitelist:
+                attacker_ip.append(src_ip)
+                attack_info.append(timestamp)
+                attack_info.append(src_ip)
+                attack_info.append(packet.ip.dst)
+                attack_info.append(packet[packet.transport_layer].srcport)
+                attack_info.append(packet[packet.transport_layer].dstport)
+
+                attacks.append(attack_info)
 
     capture.close()
 
-    if attacker_ip:
-        for source_ip in attacker_ip:
-            alert = []
-            alert.append(attack_time[0])
-            alert.append("Attack Type: UDP FLOOD")
-            alert.append(f"Source IP and Port:{source_ip}:{attacker_port[0]}")
-            alert.append(f"Destination IP and Port: {dest_ip[0]}:{dest_port[0]}")
+    alerts = []
+    alert = []
 
-            del attack_time[0]
-            del attacker_port[0]
-            del dest_ip[0]
-            del dest_port[0]
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
+            alert.append("Attack Type: SYN FLOOD")
+            alert.append(f"Source IP and Port:{attack[1]}:{attack[3]}")
+            alert.append(f"Destination IP and Port: {attack[2]}:{attack[4]}")
 
-        print(f"Potential SYN Flood Attacks detected from: {attacker_ip}")
+            alerts.append(alert)
 
-        return alert
+        print(f"Potential SYN Flood Attacks detected from: {file_name}")
+
+        return alerts
     else:
-        alert = []
-        alert.append(f"SYN Flood Attack Not Detected!")
+        alert.append("SYN Flood Attack Not Detected!")
         print(f"No SYN Flood detected from {file_name}")
+
+        alerts.append(alert)
     
-        return alert
+        return alerts
 
 
 def udp_flood_pcap(file_name, ip_whitelist):
@@ -95,11 +87,10 @@ def udp_flood_pcap(file_name, ip_whitelist):
         packet_time = packet.sniff_time
         udp_count[src_ip].append(packet_time)
 
-    attacker_ip = set()
-    attack_time = []
-    dest_ip = []
-    attacker_port = []
-    dest_port = []
+    attacker_ip = []
+
+    attacks = []
+    attack_info = []
 
     for src_ip, timestamps in udp_count.items():
         timestamps.sort()
@@ -114,36 +105,39 @@ def udp_flood_pcap(file_name, ip_whitelist):
                 start_time = timestamp
                 packet_count = 1
 
-            if packet_count > threshold and src_ip not in ip_whitelist:
-                attacker_ip.add(src_ip)
-                attack_time.append(timestamp)
-                dest_ip.append(packet.ip.dst)
-                attacker_port.append(packet[packet.transport_layer].srcport)
-                dest_port.append(packet[packet.transport_layer].dstport)
+            if packet_count > threshold and src_ip not in attacker_ip and src_ip not in ip_whitelist:
+                attacker_ip.append(src_ip)
+                attack_info.append(timestamp)
+                attack_info.append(src_ip)
+                attack_info.append(packet.ip.dst)
+                attack_info.append(packet[packet.transport_layer].srcport)
+                attack_info.append(packet[packet.transport_layer].dstport)
+
+                attacks.append(attack_info)
 
     capture.close()
 
-    if attacker_ip:
-        for source_ip in attacker_ip:
-            alert = []
-            alert.append(attack_time[0])
-            alert.append("Attack Type: SYN FLOOD")
-            alert.append(f"Source IP and Port:{source_ip}:{attacker_port[0]}")
-            alert.append(f"Destination IP and Port: {dest_ip[0]}:{dest_port[0]}")
+    alerts = []
+    alert = []
 
-            del attack_time[0]
-            del attacker_port[0]
-            del dest_ip[0]
-            del dest_port[0]
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
+            alert.append("Attack Type: UDP FLOOD")
+            alert.append(f"Source IP and Port:{attack[1]}:{attack[3]}")
+            alert.append(f"Destination IP and Port: {attack[2]}:{attack[4]}")
 
-        print(f"Potential UDP Flood Attacks detected from: {attacker_ip}")
-        return alert
+            alerts.append(alert)
+
+        print(f"Potential UDP Flood Attacks detected from: {file_name}")
+        return alerts
     else:
-        alert = []
         alert.append(f"UDP Flood Attack Not Detected!")
         print(f"No UDP Flood detected from {file_name}")
+
+        alerts.append(alert)
     
-        return alert
+        return alerts
 
 
 def icmp_flood_pcap(file_name, ip_whitelist):
@@ -158,9 +152,10 @@ def icmp_flood_pcap(file_name, ip_whitelist):
         packet_time = packet.sniff_time
         icmp_count[src_ip].append(packet_time)
 
-    attacker_ip = set()
-    attack_time = []
-    dest_ip = []
+    attacker_ip = []
+
+    attacks = []
+    attack_info = []
 
     for src_ip, timestamps in icmp_count.items():
         timestamps.sort()
@@ -175,41 +170,50 @@ def icmp_flood_pcap(file_name, ip_whitelist):
                 start_time = timestamp
                 packet_count = 1
 
-            if packet_count > threshold and src_ip not in ip_whitelist:
-                attacker_ip.add(src_ip)
-                attack_time.append(timestamp)
-                dest_ip.append(packet.ip.dst)
+            if packet_count > threshold and src_ip not in attacker_ip and src_ip not in ip_whitelist:
+                attacker_ip.append(src_ip)
+                attack_info.append(timestamp)
+                attack_info.append(src_ip)
+                attack_info.append(packet.ip.dst)
+
+                attacks.append(attack_info)
 
     capture.close()
     
-    if attacker_ip:
-        for source_ip in attacker_ip:
-            alert = []
-            alert.append(attack_time[0])
+    alerts = []
+    alert = []
+    
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
             alert.append("Attack Type: ICMP FLOOD")
-            alert.append(f"Source IP:{source_ip}")
-            alert.append(f"Destination IP: {dest_ip[0]}")
+            alert.append(f"Source IP:{attack[1]}")
+            alert.append(f"Destination IP: {attack[2]}")
 
-            del attack_time[0]
-            del dest_ip[0]
+            alerts.append(alert)
 
-        print(f"Potential UDP Flood Attacks detected from: {attacker_ip}")
-        return alert
+        print(f"Potential UDP Flood Attacks detected from: {file_name}")
+        return alerts
     else:
-        alert = []
         alert.append(f"ICMP Flood Attack Not Detected!")
         print(f"No ICMP Flood detected from {file_name}")
     
-        return alert
+        alerts.append(alert)
+
+        return alerts
 
 
 def tcp_connect_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp")
     handshake_tracker = defaultdict(set)
     
-    attacker_ip = set()
+    attacker_ip = []
+
+    attacks = []
+    attack_info = []
 
     for packet in capture:
+        packet_time = packet.sniff_time
         src_ip = packet.ip.src
         dst_ip = packet.ip.dst
         src_port = int(packet.tcp.srcport)
@@ -226,97 +230,210 @@ def tcp_connect_scan_pcap(file_name, ip_whitelist):
                 handshake_tracker[src_ip].add(dst_port)
 
     for src_ip, ports in handshake_tracker.items():
-        if isinstance(ports, set) and len(ports) >= constants.SCAN_THRESHOLD and src_ip not in ip_whitelist:
-            print(f"TCP Connect Scan detected from {src_ip}: Scanned ports: {sorted(ports)}")
-            attacker_ip.add(src_ip)
+        if isinstance(ports, set) and len(ports) >= constants.SCAN_THRESHOLD and src_ip not in attacker_ip and src_ip not in ip_whitelist:
+            attacker_ip.append(src_ip)
+
+            attack_info.append(packet_time)
+            attack_info.append(src_ip)
+            attack_info.append(dst_ip)
+            attack_info.append(src_port)
+            attack_info.append(ports)
+
+            attacks.append(attack_info)
 
     capture.close()
 
-    if attacker_ip:
-        print(f"Potential TCP connect scan detected from: {attacker_ip}")
-        return f"Potential TCP connect scan detected from: {attacker_ip}"
+    alerts = []
+    alert = []
+
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
+            alert.append("Attack Type: TCP CONNECT SCAN")
+            alert.append(f"Source IP and port: {attack[1]}:{attack[3]}")
+            alert.append(f"Destination IP: {attack[2]}")
+            alert.append(f"List of scanned ports: {attack[4]}")
+
+            alerts.append(alert)
+
+        print(f"Potential TCP connect scan detected from: {file_name}")
+
+        return alerts
     else:
+        alert.append("TCP Connect Scan Not Detected!")
         print(f"No TCP connect scan detected from {file_name}")
-        return "No TCP Connect Scan detected"
+
+        alerts.append(alert)
+
+        return alerts
 
 
 def syn_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp.flags==0x02")
     syn_packets = {}
 
-    attacker_ip = set()
+    attacker_ip = []
+
+    attacks = []
+    attack_info = []
 
     for packet in capture:
         src_ip = packet.ip.src
+        dst_ip = packet.ip.dst
+        src_port = int(packet.tcp.srcport)
         dst_port = int(packet.tcp.dstport)
         timestamp = float(packet.sniff_timestamp)
         syn_packets.setdefault(src_ip, {}).update({dst_port: timestamp})
 
     for src_ip, ports in syn_packets.items():
-        if len(ports) > constants.SCAN_THRESHOLD and src_ip not in ip_whitelist:
-            print(f"SYN Scan detected from {src_ip}: Scanned ports: {list(ports.keys())}")
-            attacker_ip.add(src_ip)
-    
+        if len(ports) > constants.SCAN_THRESHOLD and src_ip not in attacker_ip and src_ip not in ip_whitelist:
+            attacker_ip.append(src_ip)
+
+            attack_info.append(packet.sniff_time)
+            attack_info.append(src_ip)
+            attack_info.append(dst_ip)
+            attack_info.append(src_port)
+            attack_info.append(ports)
+
+            attacks.append(attack_info)
+
     capture.close()
 
-    if attacker_ip:
-        print(f"Potential SYN scan detected from: {attacker_ip}")
-        return f"Potential SYN scan detected from: {attacker_ip}"
+    alerts = []
+    alert = []
+
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
+            alert.append("Attack Type: SYN SCAN")
+            alert.append(f"Source IP and port: {attack[1]}:{attack[3]}")
+            alert.append(f"Destination IP: {attack[2]}")
+            alert.append(f"List of scanned ports: {attack[4]}")
+
+            alerts.append(alert)
+
+        print(f"Potential SYN scan detected from: {file_name}")
+
+        return alerts
     else:
+        alert.append("SYN Scan Not Detected!")
         print(f"No SYN scan detected from {file_name}")
-        return "No SYN Scan detected"
+
+        alerts.append(alert)
+
+        return alerts
 
 
 def xmas_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp.flags==0x29")
 
-    attacker_ip = set()
+    attacker_ip = []
+
+    attacks = []
+    attack_info = []
 
     for packet in capture:
         src_ip = packet.ip.src
+        dst_ip = packet.ip.dst
+        src_port = int(packet.tcp.srcport)
+        dst_port = int(packet.tcp.dstport)
 
         if src_ip not in ip_whitelist:
-            print(f"Xmas Scan detected: Abnormal packet from {src_ip}")
-            attacker_ip.add(src_ip)
+            # attacker_ip.append(src_ip)
+
+            attack_info.append(packet.sniff_time)
+            attack_info.append(src_ip)
+            attack_info.append(dst_ip)
+            attack_info.append(src_port)
+            attack_info.append(dst_port)
+
+            attacks.append(attack_info)
         
     capture.close()
 
-    if attacker_ip:
-        print(f"Potential Xmas scan detected from: {attacker_ip}")
-        return f"Potential Xmas scan detected from: {attacker_ip}"
+    alerts = []
+    alert = []
+
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
+            alert.append("Attack Type: XMAS SCAN")
+            alert.append(f"Source IP and port: {attack[1]}:{attack[3]}")
+            alert.append(f"Destination IP and port: {attack[2]}:{attack[4]}")
+
+            alerts.append(alert)
+
+        print(f"Potential Xmas scan detected from: {file_name}")
+        return alerts
     else:
+        alert.append("No XMas Scan Detected!")
         print(f"No Xmas scan detected from {file_name}")
-        return "No Xmas Scan detected"
+
+        alerts.append(alert)
+
+        return alerts
     
 
 def null_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp.flags==0x00")
 
-    attacker_ip = set()
+    attacker_ip = []
+
+    attacks = []
+    attack_info = []
 
     for packet in capture:
         src_ip = packet.ip.src
+        dst_ip = packet.ip.dst
+        src_port = int(packet.tcp.srcport)
+        dst_port = int(packet.tcp.dstport)
 
         if src_ip not in ip_whitelist:
-            print(f"Null Scan detected: Abnormal packet from {src_ip}")
-            attacker_ip.add(src_ip)
+            # attacker_ip.append(src_ip)
+            
+            attack_info.append(packet.sniff_time)
+            attack_info.append(src_ip)
+            attack_info.append(dst_ip)
+            attack_info.append(src_port)
+            attack_info.append(dst_port)
+
+            attacks.append(attack_info)
 
     capture.close()
 
-    if attacker_ip:
-        print(f"Potential Null scan detected from: {attacker_ip}")
-        return f"Potential Null scan detected from: {attacker_ip}"
+    alerts = []
+    alert = []
+
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
+            alert.append("Attack Type: NULL SCAN")
+            alert.append(f"Source IP and port: {attack[1]}:{attack[3]}")
+            alert.append(f"Destination IP and port: {attack[2]}:{attack[4]}")
+
+            alerts.append(alert)
+
+        print(f"Potential Null scan detected from: {file_name}")
+        return alerts
     else:
+        alert.append("Null Scan Not Detected!")
         print(f"No Null scan detected from {file_name}")
-        return "No Null Scan detected"
+        
+        alerts.append(alert)
+
+        return alerts
 
 
 def dns_arp_spoof_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
 
-    attacker_ip = set()
     dns_records = {}
     arp_table = {}
+
+    attacker_ip = []
+    
+    attacks = []
+    attack_info = []
 
     for packet in capture:
         if 'DNS' in packet:
@@ -332,8 +449,16 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
                         if change_count < 10:
                             dns_records[domain] = (resolved_ip, current_time, change_count + 1)
                         else:
-                            print(f"[ALERT] DNS Spoofing Detected! {domain} changed from {prev_ip} to {resolved_ip} within {constants.TIMEFRAME} seconds")
-                            attacker_ip.add(packet.ip.src)
+                            # print(f"[ALERT] DNS Spoofing Detected! {domain} changed from {prev_ip} to {resolved_ip} within {constants.TIMEFRAME} seconds")
+                            
+                            attacker_ip.append(packet.ip.src)
+
+                            attack_info.append(packet.sniff_time)
+                            attack_info.append(prev_ip)
+                            attack_info.append(resolved_ip)
+                            attack_info.append(domain)
+
+                            attacks.append(attack_info)
                 else:
                     dns_records[domain] = (resolved_ip, current_time, 1)
             except AttributeError:
@@ -345,61 +470,119 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
                 src_mac = packet.arp.hwsrc
                 if src_ip in arp_table and arp_table[src_ip] != src_mac:
                     print(f"[ALERT] ARP Spoofing detected! IP: {src_ip}, MAC: {src_mac}")
-                    attacker_ip.add(src_ip)
+                    attacker_ip.append(src_ip)
+                    
+                    attack_info.append(packet.sniff_time)
+                    attack_info.append(src_ip)
+                    attack_info.append(src_mac)
+
+                    attacks.append(attack_info)
             except AttributeError:
                 pass  
 
     capture.close()
 
-    if attacker_ip:
-        print(f"Potential DNS/ARP Spoofing detected from: {attacker_ip}")
-        return f"Potential DNS/ARP Spoofing detected from: {attacker_ip}"
+    alerts = []
+    alert = []
+
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
+            alert.append("Attack Type: DNS / ARP SPOOFING")
+            alert.append(f"{attack[1]} -> {attack[2]}")
+            try:
+                alert.append(f"Domain: {attack[3]}")
+            except IndexError:
+                pass
+            
+            alerts.append(alert)
+
+        print(f"Potential DNS/ARP Spoofing detected from: {file_name}")
+        return alerts
     else:
+        alert.append("No DNS/ARP Spoofing Detected!")
+
         print(f"No DNS/ARP Spoofing detected from {file_name}")
-        return "No DNS/ARP Spoofing detected"
+
+        alerts.append(alert)
+        return alerts
 
 
 def ssh_brute_force_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
 
-    attacker_ip = set()
     ssh_count = {}
 
+    attacker_ip = []
+
+    attacks = []
+    attack_info = []
+    
     for packet in capture:
          if 'TCP' in packet and hasattr(packet, 'tcp') and hasattr(packet.tcp, 'dport'):
             try:
                 if int(packet.tcp.dport) == 22:
                     src_ip = packet.ip.src
+                    dst_ip = packet.ip.dst
 
-                    if src_ip not in ip_whitelist:
+                    if src_ip not in ip_whitelist and src_ip not in attacker_ip:
                         ssh_count[src_ip] = ssh_count.get(src_ip, 0) + 1
                         if ssh_count[src_ip] > constants.SSH_THRESHOLD:
                             print(f"[ALERT] SSH Brute Force detected from {src_ip}")
-                            attacker_ip.add(src_ip)
+                            attacker_ip.append(src_ip)
+                            
+                            attack_info.append(packet.sniff_time)
+                            attack_info.append(src_ip)
+                            attack_info.append(dst_ip)
+
+                            attacks.append(attack_info)
 
             except AttributeError:
                 pass
 
     capture.close()
 
-    if attacker_ip:
-        print(f"Potential SSH Brute Force attack detected from: {attacker_ip}")
-        return f"Potential SSH Brute Force attack detected from: {attacker_ip}"
+    alerts = []
+    alert = []
+
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
+            alert.append("Attack Type: SSH BRUTE FORCE")
+            alert.append(f"Source IP: {attack[1]}")
+            alert.append(f"Destination IP: {attack[2]}")
+
+            alerts.append(alert)
+
+        print(f"Potential SSH Brute Force attack detected from: {file_name}")
+        return alerts
     else:
+        alert.append("No SSH Brute Force Detected!")
         print(f"No SSH Brute Force detected from {file_name}")
-        return "No SSH Brute Force detected"
+
+        alerts.append(alert)
+
+        return alerts
 
 
 def command_injection_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
 
-    attacker_ip = set()
+    attacker_ip = []
+    
+    attacks = []
+    attack_info = []
 
     whitelisted_ports = [80, 443]
 
     for packet in capture:
         if 'TCP' in packet and 'Raw' in packet and int(packet.ip.src) not in ip_whitelist:
             if int(packet.tcp.dport) not in whitelisted_ports:
+                src_ip = packet.ip.src
+                dst_ip = packet.ip.dst
+                src_port = int(packet.tcp.srcport)
+                dst_port = int(packet.tcp.dstport)
+                
                 payload = packet['Raw'].load.decode(errors="ignore")
 
                 patterns = [
@@ -421,26 +604,58 @@ def command_injection_pcap(file_name, ip_whitelist):
 
                 for pattern in patterns:
                     if re.search(pattern, payload, re.IGNORECASE):
-                        print(f"[ALERT] Command Injection Detected in live traffic: {pattern}")
-                        attacker_ip.add(packet.ip.src)
+                        attacker_ip.append(src_ip)
+
+                        attack_info.append(packet.sniff_time)
+                        attack_info.append(src_ip)
+                        attack_info.append(dst_ip)
+                        attack_info.append(src_port)
+                        attack_info.append(dst_port)
+                        attack_info.append(pattern)
+
+                        attacks.append(attack_info)
 
     capture.close()
 
-    if attacker_ip:
-        print(f"Potential Command Injection detected from: {attacker_ip}")
-        return f"Potential Command Injection detected from: {attacker_ip}"
+    alerts = []
+    alert = []
+
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
+            alert.append("Attack Type: COMMAND INJECTION")
+            alert.append(f"Source IP and port: {attack[1]}:{attack[3]}")
+            alert.append(f"Destination IP and port: {attack[2]}:{attack[4]}")
+            alert.append(f"Command: {pattern}")
+
+            alerts.append(alert)
+
+        print(f"Potential Command Injection detected from: {file_name}")
+        return alerts
     else:
+        alert.append("No Command Injection Detected!")
         print(f"No Command Injection detected from {file_name}")
-        return "No Command Injection detected"
+
+        alerts.append(alert)
+
+        return alerts
 
 
 def sql_injection_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
 
-    attacker_ip = set()
+    attacker_ip = []
+
+    attacks = []
+    attack_info = []
 
     for packet in capture:
         if 'TCP' in packet and 'Raw' in packet and int(packet.ip.src) not in ip_whitelist:
+            src_ip = packet.ip.src
+            dst_ip = packet.ip.dst
+            src_port = int(packet.tcp.srcport)
+            dst_port = int(packet.tcp.dstport)
+
             payload = packet['Raw'].load.decode(errors="ignore")
             patterns = [
                 r"' OR '1'='1",
@@ -452,42 +667,63 @@ def sql_injection_pcap(file_name, ip_whitelist):
             ]
             for pattern in patterns:
                 if re.search(pattern, payload, re.IGNORECASE):
-                    print(f"[ALERT] SQL Injection Detected in live traffic: {pattern}")
-                    attacker_ip.add(packet.ip.src)
+                    attacker_ip.append(src_ip)
+
+                    attack_info.append(packet.sniff_time)
+                    attack_info.append(src_ip)
+                    attack_info.append(dst_ip)
+                    attack_info.append(src_port)
+                    attack_info.append(dst_port)
+                    attack_info.append(pattern)
+
+                    attacks.append(attack_info)
 
     capture.close()
 
-    if attacker_ip:
-        print(f"Potential SQL Injection detected from: {attacker_ip}")
-        return f"Potential SQL Injection detected from: {attacker_ip}"
+    alerts = []
+    alert = []
+
+    if len(attacks) > 0:
+        for attack in attacks:
+            alert.append(attack[0])
+            alert.append("Attack Type: SQL INJECTION")
+            alert.append(f"Source IP and port: {attack[1]}:{attack[3]}")
+            alert.append(f"Destination IP and port: {attack[2]}:{attack[4]}")
+            alert.append(f"Command: {pattern}")
+
+            alerts.append(alert)
+
+        print(f"Potential SQL Injection detected from: {file_name}")
+        return alerts
     else:
+        alert.append("No SQL Injection Detected!")
         print(f"No SQL Injection detected from {file_name}")
-        return "No SQL Injection Detected"
+
+        alerts.append(alert)
+
+        return alerts
 
 
-def run_pcap_analyzer(file_name):
-    # ip_whitelist = set()
+def run_pcap_analyzer(file_name, ip_whitelist):
+    alerts = syn_flood_pcap(file_name, ip_whitelist)
+    alerts += udp_flood_pcap(file_name, ip_whitelist)
+    alerts += icmp_flood_pcap(file_name, ip_whitelist)
+    print("")
 
-    # # ip_whitelist = ip_whitelisting(ip_address)
-    
-    # syn_flood_pcap(file_name, ip_whitelist)
-    # udp_flood_pcap(file_name, ip_whitelist)
-    # icmp_flood_pcap(file_name, ip_whitelist)
-    # print("")
+    alerts += tcp_connect_scan_pcap(file_name, ip_whitelist)
+    alerts += syn_scan_pcap(file_name, ip_whitelist)
+    alerts += xmas_scan_pcap(file_name, ip_whitelist)
+    alerts += null_scan_pcap(file_name, ip_whitelist)
+    print("")
 
-    # tcp_connect_scan_pcap(file_name, ip_whitelist)
-    # syn_scan_pcap(file_name, ip_whitelist)
-    # xmas_scan_pcap(file_name, ip_whitelist)
-    # null_scan_pcap(file_name, ip_whitelist)
-    # print("")
+    alerts += dns_arp_spoof_pcap(file_name, ip_whitelist)
+    alerts += ssh_brute_force_pcap(file_name, ip_whitelist)
+    alerts += command_injection_pcap(file_name, ip_whitelist)
+    alerts += sql_injection_pcap(file_name, ip_whitelist)
+    print("")
 
-    # dns_arp_spoof_pcap(file_name, ip_whitelist)
-    # ssh_brute_force_pcap(file_name, ip_whitelist)
-    # command_injection_pcap(file_name, ip_whitelist)
-    # sql_injection_pcap(file_name, ip_whitelist)
-    # print("")
+    print("=================")
+    print("ANALYSIS COMPLETE")
+    print("=================")
 
-    # print("=================")
-    # print("ANALYSIS COMPLETE")
-    # print("=================")
-    pass
+    return alerts
