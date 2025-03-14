@@ -175,11 +175,9 @@ def open_pcap_page():
     content_frame.update_idletasks()
     canvas.config(scrollregion=canvas.bbox("all"))
 
-
 def run_realtime_analysis():
     stop_event.clear()
     sniff(prn=process_packet, store=0, stop_filter=lambda x: stop_event.is_set())
-
 
 def process_packet(packet):
     gui_display = gui_display_var.get()
@@ -213,7 +211,6 @@ def update_alert(alert):
 
 def stop_analysis():
     if analysis_mode.get() == "real-time":
-        sniff_running = False
         stop_event.set()
         analysis_window.destroy()
         root.deiconify()
@@ -260,11 +257,9 @@ def main():
 
     global email_label, email_entry
 
-    global sniff_running, stop_event
+    global stop_event
 
     stop_event = threading.Event()
-
-    sniff_running = False
 
     whitelisted_ip = set()
 
