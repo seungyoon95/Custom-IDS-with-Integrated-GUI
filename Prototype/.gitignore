@@ -4,3 +4,5 @@ logs/
 pcaps/
 testing/
 credential.py
+credentials.json
+token.json

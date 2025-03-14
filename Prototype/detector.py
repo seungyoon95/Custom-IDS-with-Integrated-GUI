@@ -12,11 +12,16 @@ from scapy.packet import Raw
 from scapy.layers.l2 import ARP
 from scapy.layers.dns import DNS, DNSRR
 
-
+# Email-related imports
 import credential
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import base64
+from email.message import EmailMessage
+
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 
 # Dictionaries to hold packet counts from 
@@ -86,9 +91,9 @@ def display_on_gui(attack_type, packet, info=None):
         shared_alert.append(f"List of scanned ports: {info}")
     
     if attack_type == "ARP SPOOFING":
-        print(f"Source Mac Address: {info}")
+        print(f"Spoofed Mac Address: {info}")
 
-        shared_alert.append(f"Source Mac Address: {info}")
+        shared_alert.append(f"Spoofed Mac Address: {info}")
     
     if attack_type == "DNS SPOOFING":
         print(f"Affected Domain: {info}")
@@ -96,16 +101,18 @@ def display_on_gui(attack_type, packet, info=None):
         shared_alert.append(f"Affected Domain: {info}")
     
     if attack_type == "SSH BRUTE FORCE":
-        payload = []
+        attempted_passwords = []
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         print(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
-        for p in info:
-            print(p)
-            payload.insert(p)
 
         shared_alert.append(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
         shared_alert.append(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
-        shared_alert.append(payload)
+        for p  in info:
+            p = p.decode('utf-8')
+            if "password" in p:
+                password = p.split("password=")[-1].split("&")[0]
+                attempted_passwords.append(password)
+        shared_alert.append(f"Attempts: {attempted_passwords}")
     
     if attack_type == "COMMAND INJECTION":
         print(f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}")
@@ -178,80 +185,92 @@ def write_to_log(attack_type, packet, info=None):
     
 
 def alert_to_email(attack_type, packet, email_address, info=None):
-    smtp_server = 'smtp.gmail.com'
-    smtp_port = 587
-    from_email = credential.email
-    from_password = credential.password
+    SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
+
+    creds = None
+
+    if os.path.exists("token.json"):
+        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "credentials.json", SCOPES
+            )
+            creds = flow.run_local_server(port=0)
+        with open("token.json", "w") as token:
+            token.write(creds.to_json())
 
     current_time = datetime.now()
 
-    body = ""
+    email_content = ""
 
-    body += current_time.strftime("%Y-%m-%d %H:%M:%S")
-    body += f"\nAttack Type: {attack_type}"
+    email_content += current_time.strftime("%Y-%m-%d %H:%M:%S")
+    email_content += f"\nAttack Type: {attack_type}"
 
     if info == "TCP" and type(info) != set:
-        body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
-        body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
-
+        email_content += f"\nSource IP and Port: {packet[IP].src}:{packet[TCP].sport}"
+        email_content += f"\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
     if info == "UDP":
-        body += f"Source IP and Port: {packet[IP].src}:{packet[UDP].sport}"
-        body += f"Destination IP and Port: {packet[IP].dst}:{packet[UDP].dport}"
-
+        email_content += f"\nSource IP and Port: {packet[IP].src}:{packet[UDP].sport}"
+        email_content += f"\nDestination IP and Port: {packet[IP].dst}:{packet[UDP].dport}"
     if info == "ICMP":
-        body += f"Source IP: {packet[IP].src}"
-        body += f"Destination IP: {packet[IP].dst}"
-
-
+        email_content += f"\nSource IP: {packet[IP].src}"
+        email_content += f"\nDestination IP: {packet[IP].dst}"
     if (attack_type == "SYN SCAN" or attack_type == "TCP CONNECT SCAN") and type(info) == list:
-        body += f"Source IP: {packet[IP].src}"
-        body += f"Destination IP: {packet[IP].dst}"
-        body += f"List of scanned ports: {info}"
-
+        email_content += f"\nSource IP: {packet[IP].src}"
+        email_content += f"\nDestination IP: {packet[IP].dst}"
+        email_content += f"\nList of scanned ports: {info}"
     if attack_type == "ARP SPOOFING":
-        body += f"Source Mac Address: {info}"
-
-    
+        email_content += f"\nSpoofed Mac Address: {info}"
     if attack_type == "DNS SPOOFING":
-        body += f"Affected Domain: {info}"
-    
+        email_content += f"\nAffected Domain: {info}"
     if attack_type == "SSH BRUTE FORCE":
-        payload = []
-        
+        attempted_passwords = []
         for p in info:
-            payload.insert(p)
-        
-        body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
-        body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
-        body += f"{payload}"
-    
+            p = p.decode('utf-8')
+            if "password" in p:
+                password = p.split("password=")[-1].split("&")[0]
+                attempted_passwords.append(password)
+        email_content += f"\nSource IP and Port: {packet[IP].src}:{packet[TCP].sport}"
+        email_content += f"\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
+        email_content += f"\nAttempts: {attempted_passwords}"
     if attack_type == "COMMAND INJECTION":
-        body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
-        body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
-        body += f"Command Detected: {info}"
-
+        email_content += f"\nSource IP and Port: {packet[IP].src}:{packet[TCP].sport}"
+        email_content += f"\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
+        email_content += f"\nCommand Detected: {info}"
     if attack_type == "SQL INJECTION":
-        body += f"Source IP and Port: {packet[IP].src}:{packet[TCP].sport}"
-        body += f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
-        body += f"Command Detected: {info}"
-
-    msg = MIMEMultipart()
-    msg['From'] = from_email
-    msg['To'] = email_address
-    msg['Subject'] = "Potential Threat Found from the IDS"
-    msg.attach(MIMEText(body, 'plain'))
+        email_content += f"\nSource IP and Port: {packet[IP].src}:{packet[TCP].sport}"
+        email_content += f"\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}"
+        email_content += f"\nCommand Detected: {info}"
 
     try:
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(from_email, from_password)
-        text = msg.as_string()
-        server.sendmail(from_email, email_address, text)
-        print("Email sent successfully")
-    except Exception as e:
-        print(f"Email delivery was not successful due to an error: {e}")
-    finally:
-        server.quit()
+        service = build("gmail", "v1", credentials=creds)
+        message = EmailMessage()
+
+        message.set_content(email_content)
+        message["To"] = email_address
+        message["From"] = credential.email
+        message["Subject"] = f"Threat Detected from the IDS: {attack_type}"
+
+        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+
+        create_message = {"raw": encoded_message}
+
+        send_message = (
+            service.users()
+            .messages()
+            .send(userId="me", body=create_message)
+            .execute()
+        )
+        print(f'[EMAIL SENT] Message Id: {send_message["id"]}')
+    except HttpError as error:
+        print(f"An error occured: {error}")
+        send_message = None
+    
+    return send_message
+
 
 def ip_whitelisting(ip_address):
     for ip in ip_address:
@@ -471,31 +490,29 @@ def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address):
             if dns_layer.haslayer(DNSRR):
                 dns_responses = []
                 
-                for answer in dns_layer.an:
-                    if answer.type == 1:
-                        dns_responses.append(str(answer.rdata))
+                if dns_layer.an:
+                    for answer in dns_layer.an:
+                        if answer.type == 1:
+                            dns_responses.append(str(answer.rdata))
 
-                if dns_responses:
-                    if dns_query in dns_cache:
-                        prev_ip, timestamp, change_count = dns_cache[dns_query]
+                    if dns_responses:
+                        if dns_query in dns_cache:
+                            prev_ip, timestamp, change_count = dns_cache[dns_query]
 
-                        if prev_ip != dns_responses[0] and (current_time - timestamp) <= constants.TIMEFRAME:
-                            if change_count < 10:
-                                dns_cache[dns_query] = (dns_responses[0], current_time, change_count + 1)
+                            if prev_ip != dns_responses[0] and (current_time - timestamp) <= constants.TIMEFRAME:
+                                if change_count < 10:
+                                    dns_cache[dns_query] = (dns_responses[0], current_time, change_count + 1)
+                                else:
+                                    if log:
+                                        write_to_log("DNS SPOOFING", packet, dns_query)
+                                    if gui_display:
+                                        display_on_gui("DNS SPOOFING", packet, dns_query)
+                                    if email:
+                                        alert_to_email("DNS SPOOFING", packet, dns_query)
                             else:
-                                if log:
-                                    write_to_log("DNS SPOOFING", packet, dns_query)
-                                if gui_display:
-                                    display_on_gui("DNS SPOOFING", packet, dns_query)
-                                if email:
-                                    alert_to_email("DNS SPOOFING", packet, dns_query)
+                                dns_cache[dns_query] = (dns_responses[0], current_time, change_count + 1)
                         else:
-                            dns_cache[dns_query] = (dns_responses[0], current_time, change_count + 1)
-                    else:
-                        dns_cache[dns_query] = (dns_responses[0], current_time, 1)
-                            
-
-        
+                            dns_cache[dns_query] = (dns_responses[0], current_time, 1)
 
 
 def ssh_brute_force(packet, ip_whitelist, log, gui_display, email, email_address):
