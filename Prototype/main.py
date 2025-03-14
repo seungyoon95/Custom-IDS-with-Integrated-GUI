@@ -177,10 +177,8 @@ def open_pcap_page():
 
 
 def run_realtime_analysis():
-    sniff_running = True
-
-    while sniff_running:
-        sniff(prn=process_packet, store=0)
+    stop_event.clear()
+    sniff(prn=process_packet, store=0, stop_filter=lambda x: stop_event.is_set())
 
 
 def process_packet(packet):
@@ -216,6 +214,7 @@ def update_alert(alert):
 def stop_analysis():
     if analysis_mode.get() == "real-time":
         sniff_running = False
+        stop_event.set()
         analysis_window.destroy()
         root.deiconify()
     else:
@@ -261,7 +260,9 @@ def main():
 
     global email_label, email_entry
 
-    global sniff_running
+    global sniff_running, stop_event
+
+    stop_event = threading.Event()
 
     sniff_running = False
 
