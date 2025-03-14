@@ -1,15 +1,12 @@
 import detector
 import pcap_reader
 
-
 import tkinter as tk
 from tkinter import ttk, filedialog
 from scapy.all import sniff
 import threading
-import time
 import sys
 import os
-
 
 def toggle_email_entry():
     if email_var.get():
@@ -105,9 +102,18 @@ def start_analysis():
         root.withdraw()
         open_pcap_page()
 
+def toggle_section(frame, button):
+    if frame.winfo_ismapped():
+        frame.pack_forget()
+        button.config(text="▼" + button.section_name)
+    else:
+        frame.pack(fill=tk.X, padx=20, pady=5)
+        button.config(text="▲" + button.section_name)
 
 def open_realtime_page():
     global alert_label, analysis_window
+    global alert_label_high, alert_label_medium, alert_label_low
+    global high_risk_frame, medium_risk_frame, low_risk_frame
     
     analysis_window = tk.Toplevel(root)
     analysis_window.title("Real-Time Analysis")
@@ -125,8 +131,43 @@ def open_realtime_page():
         whitelist_label = ttk.Label(analysis_window, text=f"Whitelisted IPs: {whitelisted_ip}", font=("Arial", 14), foreground="blue")
         whitelist_label.pack(pady=10)
 
-    alert_label = ttk.Label(analysis_window, text="No threats detected...", font=("Arial", 14), foreground="green")
-    alert_label.pack(pady=20)
+    high_risk_section = tk.Frame(analysis_window)
+    high_risk_section.pack(fill=tk.X, padx=10, pady=5)
+
+    high_risk_button = ttk.Button(high_risk_section, text="▼ High Risk", command=lambda: toggle_section(high_risk_frame, high_risk_button))
+    high_risk_button.pack(fill=tk.X, padx=20, pady=(10, 0))
+    high_risk_button.section_name = "High Risk"
+
+    high_risk_frame = ttk.Frame(high_risk_section, padding=10)
+    high_risk_frame.pack(fill=tk.X, padx=20, pady=5)
+    alert_label_high = ttk.Label(high_risk_frame, text="No high-risk threats detected.", font=("Arial", 12), foreground="red")
+    alert_label_high.pack(pady=5)
+
+    # Medium Risk Section
+    medium_risk_section = tk.Frame(analysis_window)
+    medium_risk_section.pack(fill=tk.X, padx=10, pady=5)
+
+    medium_risk_button = ttk.Button(medium_risk_section, text="▼ Medium Risk", command=lambda: toggle_section(medium_risk_frame, medium_risk_button))
+    medium_risk_button.pack(fill=tk.X, padx=20, pady=(10, 0))
+    medium_risk_button.section_name = "Medium Risk"
+
+    medium_risk_frame = ttk.Frame(medium_risk_section, padding=10)
+    medium_risk_frame.pack(fill=tk.X, padx=20, pady=5)
+    alert_label_medium = ttk.Label(medium_risk_frame, text="No medium-risk threats detected.", font=("Arial", 12), foreground="orange")
+    alert_label_medium.pack(pady=5)
+
+    # Low Risk Section
+    low_risk_section = tk.Frame(analysis_window)
+    low_risk_section.pack(fill=tk.X, padx=10, pady=5)
+
+    low_risk_button = ttk.Button(low_risk_section, text="▼ Low Risk", command=lambda: toggle_section(low_risk_frame, low_risk_button))
+    low_risk_button.pack(fill=tk.X, padx=20, pady=(10, 0))
+    low_risk_button.section_name = "Low Risk"
+
+    low_risk_frame = ttk.Frame(low_risk_section, padding=10)
+    low_risk_frame.pack(fill=tk.X, padx=20, pady=5)
+    alert_label_low = ttk.Label(low_risk_frame, text="No low-risk threats detected.", font=("Arial", 12), foreground="green")
+    alert_label_low.pack(pady=5)
     
 def open_pcap_page():
     global alert_label, pcap_window
@@ -192,17 +233,43 @@ def process_packet(packet):
     alert = detector.attack_analyzer(packet, whitelisted_ip, log, gui_display, email, user_email)
         
     if len(detector.shared_alert) != 0:
-        alert_label.pack_forget()
-    
-        print("ALERT GENERATED!")
-        print(detector.shared_alert)
+        severity = ""
 
-        alert_container = tk.Frame(analysis_window, bd=2, relief="ridge",padx=5, pady=5)
+        if "FLOOD" in detector.shared_alert[1]:
+            severity = "high"
+        if "SCAN" in detector.shared_alert[1]:
+            severity = "low"
+        if "SPOOFING" in detector.shared_alert[1]:
+            severity = "high"
+        if "BRUTE FORCE" in detector.shared_alert[1]:
+            severity = "medium"
+        if "INJECTION" in detector.shared_alert[1]:
+            severity = "high"
+
+        alert_container = None
+
+        if severity == "high":
+            alert_label_high.pack_forget()
+            alert_container = tk.Frame(high_risk_frame, bd=2, relief="ridge", padx=5, pady=5)
+        if severity == "medium":
+            alert_label_medium.pack_forget()
+            alert_container = tk.Frame(medium_risk_frame, bd=2, relief="ridge", padx=5, pady=5)
+        if severity == "low":
+            alert_label_low.pack_forget()
+            alert_container = tk.Frame(low_risk_frame, bd=2, relief="ridge", padx=5, pady=5)
+
         alert_container.pack(fill="x", pady=5)
 
         for alert in detector.shared_alert:
-            alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 12, "bold"))
-            alert_detail.pack(anchor="w", pady=2, padx=5)
+            if severity == "high":
+                alert_detail = tk.Label(alert_container, text=alert, fg="red", font=("Arial", 12, "bold"), wraplength=500)
+                alert_detail.pack(anchor="w", pady=2, padx=5)
+            if severity == "medium":
+                alert_detail = tk.Label(alert_container, text=alert, fg="orange", font=("Arial", 12, "bold"), wraplength=500)
+                alert_detail.pack(anchor="w", pady=2, padx=5)
+            if severity == "low":
+                alert_detail = tk.Label(alert_container, text=alert, fg="green", font=("Arial", 12, "bold"), wraplength=500)
+                alert_detail.pack(anchor="w", pady=2, padx=5)
 
         detector.shared_alert.clear()
     
