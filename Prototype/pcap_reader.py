@@ -1,6 +1,5 @@
 import constants
 
-from scapy.layers.inet import IP
 import pyshark
 
 from collections import defaultdict
