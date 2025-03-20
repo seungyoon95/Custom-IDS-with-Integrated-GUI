@@ -251,7 +251,7 @@ def tcp_connect_scan_pcap(file_name, ip_whitelist):
             alert.append("Attack Type: TCP CONNECT SCAN")
             alert.append(f"Source IP and port: {attack[1]}:{attack[3]}")
             alert.append(f"Destination IP: {attack[2]}")
-            alert.append(f"List of scanned ports: {attack[4]}")
+            alert.append(f"List of scanned ports: {', '.join(map(str, attack[4]))}")
 
             alerts.append(alert)
 
@@ -307,7 +307,8 @@ def syn_scan_pcap(file_name, ip_whitelist):
             alert.append("Attack Type: SYN SCAN")
             alert.append(f"Source IP and port: {attack[1]}:{attack[3]}")
             alert.append(f"Destination IP: {attack[2]}")
-            alert.append(f"List of scanned ports: {attack[4]}")
+            # alert.append(f"List of scanned ports: {attack[4]}")
+            alert.append(f"List of scanned ports: {', '.join(map(str, attack[4]))}")
 
             alerts.append(alert)
 
@@ -545,8 +546,6 @@ def ssh_brute_force_pcap(file_name, ip_whitelist):
                     payload_chars = map(lambda hex: chr(int(hex, 16)), payload_split)
 
                     data = ''.join(payload_chars)
-                    print(data)
-
                     matched = False
 
                     for pattern in patterns:
@@ -636,7 +635,6 @@ def command_injection_pcap(file_name, ip_whitelist):
                 payload_chars = map(lambda hex: chr(int(hex, 16)), payload_split)
 
                 data = ''.join(payload_chars)
-                # print(data)
                 
                 for pattern in patterns:
                     if re.search(pattern, data, re.IGNORECASE):
@@ -718,7 +716,9 @@ def sql_injection_pcap(file_name, ip_whitelist):
                         attack_info.append(dst_ip)
                         attack_info.append(src_port)
                         attack_info.append(dst_port)
-                        attack_info.append(pattern)
+                        
+                        clean_pattern = re.sub(r'\\b|\\s*|\'|--', '', pattern)
+                        attack_info.append(clean_pattern)
 
                         attacks.append(attack_info)
         except AttributeError as e:
@@ -736,7 +736,7 @@ def sql_injection_pcap(file_name, ip_whitelist):
             alert.append("Attack Type: SQL INJECTION")
             alert.append(f"Source IP and port: {attack[1]}:{attack[3]}")
             alert.append(f"Destination IP and port: {attack[2]}:{attack[4]}")
-            alert.append(f"Command: {pattern}")
+            alert.append(f"Command: {attack[5]}")
 
             alerts.append(alert)
 
