@@ -117,7 +117,7 @@ def open_realtime_page():
     
     analysis_window = tk.Toplevel(root)
     analysis_window.title("Real-Time Analysis")
-    analysis_window.geometry("600x800")
+    analysis_window.geometry("900x800")
 
     top_bar = tk.Frame(analysis_window)
     top_bar.pack(fill=tk.X, padx=10, pady=5)
@@ -125,45 +125,45 @@ def open_realtime_page():
     ttk.Label(top_bar, text="Real-Time Alerts", font=("Arial", 16)).pack(side=tk.LEFT, pady=20)
 
     stop_button = ttk.Button(top_bar, text="Go Back", command=stop_analysis, style="TButton")
-    stop_button.pack(pady=10, side=tk.RIGHT)
+    stop_button.pack(side=tk.RIGHT, padx=10, pady=5)
 
     if len(whitelisted_ip) != 0:
         whitelist_label = ttk.Label(analysis_window, text=f"Whitelisted IPs: {whitelisted_ip}", font=("Arial", 14), foreground="blue")
         whitelist_label.pack(pady=10)
 
-    high_risk_section = tk.Frame(analysis_window)
-    high_risk_section.pack(fill=tk.X, padx=10, pady=5)
+    high_risk_section = tk.Frame(analysis_window, width=400)
+    high_risk_section.pack(side=tk.TOP, fill=tk.BOTH, padx=10, pady=5)
 
     high_risk_button = ttk.Button(high_risk_section, text="▼ High Risk", command=lambda: toggle_section(high_risk_frame, high_risk_button))
-    high_risk_button.pack(fill=tk.X, padx=20, pady=(10, 0))
+    high_risk_button.pack(fill=tk.BOTH, padx=10, pady=5)
     high_risk_button.section_name = "High Risk"
 
     high_risk_frame = ttk.Frame(high_risk_section, padding=10)
-    high_risk_frame.pack(fill=tk.X, padx=20, pady=5)
+    high_risk_frame.pack(fill=tk.X, padx=10, pady=5)
     alert_label_high = ttk.Label(high_risk_frame, text="No high-risk threats detected.", font=("Arial", 12), foreground="red")
     alert_label_high.pack(pady=5)
 
-    medium_risk_section = tk.Frame(analysis_window)
-    medium_risk_section.pack(fill=tk.X, padx=10, pady=5)
+    medium_risk_section = tk.Frame(analysis_window, width=400)
+    medium_risk_section.pack(side=tk.TOP, fill=tk.BOTH, padx=10, pady=5)
 
     medium_risk_button = ttk.Button(medium_risk_section, text="▼ Medium Risk", command=lambda: toggle_section(medium_risk_frame, medium_risk_button))
-    medium_risk_button.pack(fill=tk.X, padx=20, pady=(10, 0))
+    medium_risk_button.pack(fill=tk.X, padx=10, pady=5)
     medium_risk_button.section_name = "Medium Risk"
 
     medium_risk_frame = ttk.Frame(medium_risk_section, padding=10)
-    medium_risk_frame.pack(fill=tk.X, padx=20, pady=5)
+    medium_risk_frame.pack(fill=tk.X, padx=10, pady=5)
     alert_label_medium = ttk.Label(medium_risk_frame, text="No medium-risk threats detected.", font=("Arial", 12), foreground="orange")
     alert_label_medium.pack(pady=5)
 
-    low_risk_section = tk.Frame(analysis_window)
-    low_risk_section.pack(fill=tk.X, padx=10, pady=5)
+    low_risk_section = tk.Frame(analysis_window, width=400)
+    low_risk_section.pack(side=tk.TOP, fill=tk.BOTH, padx=10, pady=5)
 
     low_risk_button = ttk.Button(low_risk_section, text="▼ Low Risk", command=lambda: toggle_section(low_risk_frame, low_risk_button))
-    low_risk_button.pack(fill=tk.X, padx=20, pady=(10, 0))
+    low_risk_button.pack(fill=tk.X, padx=10, pady=5)
     low_risk_button.section_name = "Low Risk"
 
     low_risk_frame = ttk.Frame(low_risk_section, padding=10)
-    low_risk_frame.pack(fill=tk.X, padx=20, pady=5)
+    low_risk_frame.pack(fill=tk.X, padx=10, pady=5)
     alert_label_low = ttk.Label(low_risk_frame, text="No low-risk threats detected.", font=("Arial", 12), foreground="green")
     alert_label_low.pack(pady=5)
     
