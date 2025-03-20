@@ -420,11 +420,13 @@ def null_scan_pcap(file_name, ip_whitelist):
 def dns_arp_spoof_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
 
+    attacker_ip = []
+
+    dns_history = {}
     dns_records = {}
+
     arp_table = {}
 
-    attacker_ip = []
-    
     attacks = []
     attack_info = []
 
@@ -434,27 +436,31 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
                 domain = packet.dns.qry_name
                 resolved_ip = packet.dns.a
                 current_time = time.time()
-
+                
                 if domain in dns_records:
                     prev_ip, timestamp, change_count = dns_records[domain]
+                    
+                    if domain not in dns_history:
+                        dns_history[domain] = [prev_ip]
+                    else:
+                        dns_history[domain].append(prev_ip)
 
                     if prev_ip != resolved_ip and (current_time - timestamp) <= constants.TIMEFRAME:
                         if change_count < 10:
                             dns_records[domain] = (resolved_ip, current_time, change_count + 1)
                         else:
-                            # print(f"[ALERT] DNS Spoofing Detected! {domain} changed from {prev_ip} to {resolved_ip} within {constants.TIMEFRAME} seconds")
-                            
-                            attacker_ip.append(packet.ip.src)
-
                             attack_info.append(packet.sniff_time)
                             attack_info.append("DNS")
+                            attack_info.append(domain)
                             attack_info.append(prev_ip)
                             attack_info.append(resolved_ip)
-                            attack_info.append(domain)
 
                             attacks.append(attack_info)
+                    else:
+                        dns_history[domain] = [prev_ip]
                 else:
                     dns_records[domain] = (resolved_ip, current_time, 1)
+                    
             except AttributeError:
                 pass
 
@@ -488,8 +494,8 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
             
             if attack[1] == "DNS":
                 alert.append("Attack Type: DNS SPOOFING")
-                alert.append(f"Attacker IP: {attack[2]}")
-                alert.append(f"DNS Change: {attack[3]} to {attack[4]}")
+                alert.append(f"Domain: {attack[2]}")
+                alert.append(f"DNS Changes: {dns_history[attack[2]]}")
             if attack[1] == "ARP":
                 alert.append("Attack Type: ARP SPOOFING")
                 alert.append(f"Attacker IP: {attack[2]}")
