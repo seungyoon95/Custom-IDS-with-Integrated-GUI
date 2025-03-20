@@ -143,7 +143,6 @@ def open_realtime_page():
     alert_label_high = ttk.Label(high_risk_frame, text="No high-risk threats detected.", font=("Arial", 12), foreground="red")
     alert_label_high.pack(pady=5)
 
-    # Medium Risk Section
     medium_risk_section = tk.Frame(analysis_window)
     medium_risk_section.pack(fill=tk.X, padx=10, pady=5)
 
@@ -156,7 +155,6 @@ def open_realtime_page():
     alert_label_medium = ttk.Label(medium_risk_frame, text="No medium-risk threats detected.", font=("Arial", 12), foreground="orange")
     alert_label_medium.pack(pady=5)
 
-    # Low Risk Section
     low_risk_section = tk.Frame(analysis_window)
     low_risk_section.pack(fill=tk.X, padx=10, pady=5)
 
