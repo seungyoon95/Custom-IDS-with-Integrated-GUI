@@ -404,30 +404,34 @@ def syn_scan(packet, ip_whitelist, log, gui_display, email, email_address):
     whitelisted_port = [22, 53, 443]
     current_time = time.time()
 
-    if packet.haslayer(TCP) and packet[TCP].flags == "S":
+    if packet.haslayer(TCP):
             source_ip = packet[IP].src
             src_port = packet[TCP].sport
             dst_port = packet[TCP].dport
-                       
-            if source_ip not in syn_scans:
-                syn_scans[source_ip] = {}
+            tcp_flags = packet[TCP].flags
 
-            syn_scans[source_ip][dst_port] = current_time
+            if tcp_flags == "A" and source_ip in syn_scans:
+                del syn_scans[source_ip]
+            elif tcp_flags == "S":                       
+                if source_ip not in syn_scans:
+                    syn_scans[source_ip] = {}
 
-            syn_scans[source_ip] = {
-                port: timestamp
-                for port, timestamp in syn_scans[source_ip].items()
-                if current_time - timestamp <= constants.TIMEFRAME
-            }
+                syn_scans[source_ip][dst_port] = current_time
 
-            if len(syn_scans[source_ip]) > constants.SCAN_THRESHOLD:
-                if source_ip not in ip_whitelist and src_port not in whitelisted_port and dst_port not in whitelisted_port:
-                    if log:
-                        write_to_log("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
-                    if gui_display:
-                        display_on_gui("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
-                    if email:
-                        alert_to_email("SYN SCAN", packet, email_address, list(syn_scans[source_ip].keys()))
+                syn_scans[source_ip] = {
+                    port: timestamp
+                    for port, timestamp in syn_scans[source_ip].items()
+                    if current_time - timestamp <= constants.TIMEFRAME
+                }
+
+                if len(syn_scans[source_ip]) > constants.SCAN_THRESHOLD:
+                    if source_ip not in ip_whitelist and src_port not in whitelisted_port and dst_port not in whitelisted_port:
+                        if log:
+                            write_to_log("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
+                        if gui_display:
+                            display_on_gui("SYN SCAN", packet, list(syn_scans[source_ip].keys()))
+                        if email:
+                            alert_to_email("SYN SCAN", packet, email_address, list(syn_scans[source_ip].keys()))
 
 
 def xmas_scan(packet, ip_whitelist, log, gui_display, email, email_address):
@@ -539,27 +543,23 @@ def ssh_brute_force(packet, ip_whitelist, log, gui_display, email, email_address
 
 
 def command_injection(packet, ip_whitelist, log, gui_display, email, email_address):
-    whitelisted_port = [80, 443]
-
-    if packet.haslayer(Raw) and packet.haslayer(TCP) and packet[IP].src not in ip_whitelist and packet[TCP].dport not in whitelisted_port:
+    if packet.haslayer(Raw) and packet.haslayer(TCP) and packet[IP].src not in ip_whitelist:
         payload = packet[Raw].load.decode(errors="ignore")
 
         patterns = [
-            r"(cat\s+/etc/passwd)",
-            r"(rm\s+-rf\s+/)",
-            r"(cp\s+\S+\s+/tmp/|cp\s+/etc/\S+)",
-            r"(mv\s+\S+\s+/tmp/|mv\s+/etc/\S+)",
-            r"(chmod\s+[0-7]{3}\s+\S+)",
-            r"(ifconfig\s+)",
-            r"(iptables\s+)",
-            r"(ps\s+aux)",
-            r"(kill\s+\d+)",
-            r"(top\s+-u\s+\S+)",
-            r"(uname\s+-a)",
-            r"(uptime\s+)",
-            r"(echo\s+[^\n]*\s*\|\s*.*)",
-            r"(echo\s+[^\n]*\s+>\s*\S+)",
-            r"(sleep\s+\d+)",
+            r"cat\s+/etc/passwd",
+            r"rm\s+-rf\s+/",
+            r"cp\s+\S+\s+/tmp/|cp\s+/etc/\S+",
+            r"mv\s+\S+\s+/tmp/|mv\s+/etc/\S+",
+            r"chmod\s+[0-7]{3}\s+\S+",
+            r"ifconfig\s+",
+            r"iptables\s+",
+            r"ps\s+aux",
+            r"kill\s+\d+",
+            r"top\s+-u\s+\S+",
+            r"uname\s+-a",
+            r"uptime\s+",
+            r"echo\s+\S+"
         ]
 
         for pattern in patterns:
@@ -577,20 +577,20 @@ def sql_injection(packet, ip_whitelist, log, gui_display, email, email_address):
         payload = packet[Raw].load.decode(errors="ignore")
         patterns = [
             r"' OR '1'='1",
-            r'UNION SELECT',
-            r'; DROP TABLE',
+            r'UNION\s+SELECT',
+            r';\sDROP\s+TABLE',
             r'" OR "1"="1',
-            r"' OR 1=1 --",
-            r"admin' --",
+            r"'?\bOR\s*1\s*=\s*1\s*--"
         ]
         for pattern in patterns:
             if re.search(pattern, payload, re.IGNORECASE):
+                clean_pattern = re.sub(r'\\b|\\s*|\'|--', '', pattern)
                 if log:
-                    write_to_log("SQL INJECTION", packet, pattern)
+                    write_to_log("SQL INJECTION", packet, clean_pattern)
                 if gui_display:
-                    display_on_gui("SQL INJECTION", packet, pattern)
+                    display_on_gui("SQL INJECTION", packet, clean_pattern)
                 if email:
-                    alert_to_email("SQL INJECTION", packet, email_address, pattern)
+                    alert_to_email("SQL INJECTION", packet, email_address, clean_pattern)
 
 
 def type_other(packet, ip_whitelist, log, gui_display, email, email_address):
