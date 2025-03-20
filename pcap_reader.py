@@ -505,33 +505,60 @@ def ssh_brute_force_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name)
 
     ssh_count = {}
+    attempts = []
 
     attacker_ip = []
 
     attacks = []
     attack_info = []
+
+    patterns = [
+        r'user=\s*',
+        r'username=\s*',
+        r'pass=\s*',
+        r'passwd=\s*',
+        r'password=\s*'
+    ]
     
     for packet in capture:
-         if 'TCP' in packet and hasattr(packet, 'tcp') and hasattr(packet.tcp, 'dport'):
-            try:
-                if int(packet.tcp.dport) == 22:
-                    src_ip = packet.ip.src
-                    dst_ip = packet.ip.dst
+        try:
+            if 'TCP' in packet:
+                src_ip = packet.ip.src
+                dst_ip = packet.ip.dst
+        
+                if src_ip not in ip_whitelist:
+                    payload = packet.tcp.payload
+                    payload_split = payload.split(':')
+                    payload_chars = map(lambda hex: chr(int(hex, 16)), payload_split)
 
-                    if src_ip not in ip_whitelist and src_ip not in attacker_ip:
-                        ssh_count[src_ip] = ssh_count.get(src_ip, 0) + 1
-                        if ssh_count[src_ip] > constants.SSH_THRESHOLD:
-                            print(f"[ALERT] SSH Brute Force detected from {src_ip}")
-                            attacker_ip.append(src_ip)
-                            
-                            attack_info.append(packet.sniff_time)
-                            attack_info.append(src_ip)
-                            attack_info.append(dst_ip)
+                    data = ''.join(payload_chars)
+                    print(data)
 
-                            attacks.append(attack_info)
+                    matched = False
 
-            except AttributeError:
-                pass
+                    for pattern in patterns:
+                        matches = re.findall(pattern, data)
+                        if matches:
+                            if not matched:
+                                if src_ip not in ssh_count:
+                                    ssh_count[src_ip] = 0
+                                
+                                ssh_count[src_ip] += 1
+                                attempts.append(data)
+                                matched = True
+                    
+            if src_ip in ssh_count:
+                if ssh_count[src_ip] > constants.SSH_THRESHOLD and src_ip not in attacker_ip:
+                    attacker_ip.append(src_ip)
+
+                    attack_info.append(packet.sniff_time)
+                    attack_info.append(src_ip)
+                    attack_info.append(dst_ip)
+                    attack_info.append(attempts)
+
+                    attacks.append(attack_info)
+        except AttributeError:
+            continue
 
     capture.close()
 
@@ -544,6 +571,7 @@ def ssh_brute_force_pcap(file_name, ip_whitelist):
             alert.append("Attack Type: SSH BRUTE FORCE")
             alert.append(f"Source IP: {attack[1]}")
             alert.append(f"Destination IP: {attack[2]}")
+            alert.append(f"Payload: {attack[3]}")
 
             alerts.append(alert)
 
@@ -566,6 +594,22 @@ def command_injection_pcap(file_name, ip_whitelist):
     attacks = []
     attack_info = []
 
+    patterns = [
+        r"cat\s+/etc/passwd",
+        r"rm\s+-rf\s+/",
+        r"cp\s+\S+\s+/tmp/|cp\s+/etc/\S+",
+        r"mv\s+\S+\s+/tmp/|mv\s+/etc/\S+",
+        r"chmod\s+[0-7]{3}\s+\S+",
+        r"ifconfig\s+",
+        r"iptables\s+",
+        r"ps\s+aux",
+        r"kill\s+\d+",
+        r"top\s+-u\s+\S+",
+        r"uname\s+-a",
+        r"uptime\s+",
+        r"echo\s+\S+"
+    ]
+
     for packet in capture:
         try:
             if 'TCP' in packet and packet.tcp.payload and packet.ip.src not in ip_whitelist:
@@ -580,22 +624,7 @@ def command_injection_pcap(file_name, ip_whitelist):
 
                 data = ''.join(payload_chars)
                 # print(data)
-                patterns = [
-                    r"cat\s+/etc/passwd",
-                    r"rm\s+-rf\s+/",
-                    r"cp\s+\S+\s+/tmp/|cp\s+/etc/\S+",
-                    r"mv\s+\S+\s+/tmp/|mv\s+/etc/\S+",
-                    r"chmod\s+[0-7]{3}\s+\S+",
-                    r"ifconfig\s+",
-                    r"iptables\s+",
-                    r"ps\s+aux",
-                    r"kill\s+\d+",
-                    r"top\s+-u\s+\S+",
-                    r"uname\s+-a",
-                    r"uptime\s+",
-                    r"echo\s+\S+"
-                ]
-
+                
                 for pattern in patterns:
                     if re.search(pattern, data, re.IGNORECASE):
                         attacker_ip.append(src_ip)
@@ -645,6 +674,14 @@ def sql_injection_pcap(file_name, ip_whitelist):
     attacks = []
     attack_info = []
 
+    patterns = [
+        r"' OR '1'='1",
+        r'UNION\s+SELECT',
+        r';\sDROP\s+TABLE',
+        r'" OR "1"="1',
+        r"'?\bOR\s*1\s*=\s*1\s*--"
+    ]
+
     for packet in capture:
         try:
             if 'TCP' in packet and packet.tcp.payload and packet.ip.src not in ip_whitelist:
@@ -658,14 +695,6 @@ def sql_injection_pcap(file_name, ip_whitelist):
                 payload_chars = map(lambda hex: chr(int(hex, 16)), payload_split)
 
                 data = ''.join(payload_chars)
-
-                patterns = [
-                    r"' OR '1'='1",
-                    r'UNION\s+SELECT',
-                    r';\sDROP\s+TABLE',
-                    r'" OR "1"="1',
-                    r"'?\bOR\s*1\s*=\s*1\s*--"
-                ]
 
                 for pattern in patterns:
                     if re.search(pattern, data, re.IGNORECASE):
