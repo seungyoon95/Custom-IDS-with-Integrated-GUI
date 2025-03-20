@@ -622,7 +622,7 @@ def command_injection_pcap(file_name, ip_whitelist):
             alert.append("Attack Type: COMMAND INJECTION")
             alert.append(f"Source IP and port: {attack[1]}:{attack[3]}")
             alert.append(f"Destination IP and port: {attack[2]}:{attack[4]}")
-            alert.append(f"Command: {pattern}")
+            alert.append(f"Command: {attack[5]}")
 
             alerts.append(alert)
 
