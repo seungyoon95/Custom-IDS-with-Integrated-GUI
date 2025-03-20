@@ -117,7 +117,7 @@ def open_realtime_page():
     
     analysis_window = tk.Toplevel(root)
     analysis_window.title("Real-Time Analysis")
-    analysis_window.geometry("900x800")
+    analysis_window.geometry("1200x800")
 
     top_bar = tk.Frame(analysis_window)
     top_bar.pack(fill=tk.X, padx=10, pady=5)
@@ -131,40 +131,58 @@ def open_realtime_page():
         whitelist_label = ttk.Label(analysis_window, text=f"Whitelisted IPs: {whitelisted_ip}", font=("Arial", 14), foreground="blue")
         whitelist_label.pack(pady=10)
 
-    high_risk_section = tk.Frame(analysis_window, width=400)
-    high_risk_section.pack(side=tk.TOP, fill=tk.BOTH, padx=10, pady=5)
+    container = tk.Frame(analysis_window)
+    container.pack(fill=tk.BOTH, expand=True)
 
-    high_risk_button = ttk.Button(high_risk_section, text="▼ High Risk", command=lambda: toggle_section(high_risk_frame, high_risk_button))
+    canvas = tk.Canvas(container)
+    scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+
+    content_frame = tk.Frame(canvas)
+    canvas.create_window((0, 0), window=content_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    def on_frame_configure(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    content_frame.bind("<Configure>", on_frame_configure)
+
+    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    high_risk_section = tk.Frame(content_frame, width=400)
+    high_risk_section.pack(side=tk.LEFT, fill=tk.BOTH, padx=10, pady=5)
+
+    high_risk_button = ttk.Button(high_risk_section, text="▼ High Risk", width=25, command=lambda: toggle_section(high_risk_frame, high_risk_button))
     high_risk_button.pack(fill=tk.BOTH, padx=10, pady=5)
     high_risk_button.section_name = "High Risk"
 
     high_risk_frame = ttk.Frame(high_risk_section, padding=10)
     high_risk_frame.pack(fill=tk.X, padx=10, pady=5)
-    alert_label_high = ttk.Label(high_risk_frame, text="No high-risk threats detected.", font=("Arial", 12), foreground="red")
+    alert_label_high = ttk.Label(high_risk_frame, text="No high-risk threats detected.", font=("Arial", 11), foreground="red")
     alert_label_high.pack(pady=5)
 
-    medium_risk_section = tk.Frame(analysis_window, width=400)
-    medium_risk_section.pack(side=tk.TOP, fill=tk.BOTH, padx=10, pady=5)
+    medium_risk_section = tk.Frame(content_frame, width=400)
+    medium_risk_section.pack(side=tk.LEFT, fill=tk.BOTH, padx=10, pady=5)
 
-    medium_risk_button = ttk.Button(medium_risk_section, text="▼ Medium Risk", command=lambda: toggle_section(medium_risk_frame, medium_risk_button))
+    medium_risk_button = ttk.Button(medium_risk_section, text="▼ Medium Risk", width=25, command=lambda: toggle_section(medium_risk_frame, medium_risk_button))
     medium_risk_button.pack(fill=tk.X, padx=10, pady=5)
     medium_risk_button.section_name = "Medium Risk"
 
     medium_risk_frame = ttk.Frame(medium_risk_section, padding=10)
     medium_risk_frame.pack(fill=tk.X, padx=10, pady=5)
-    alert_label_medium = ttk.Label(medium_risk_frame, text="No medium-risk threats detected.", font=("Arial", 12), foreground="orange")
+    alert_label_medium = ttk.Label(medium_risk_frame, text="No medium-risk threats detected.", font=("Arial", 11), foreground="orange")
     alert_label_medium.pack(pady=5)
 
-    low_risk_section = tk.Frame(analysis_window, width=400)
-    low_risk_section.pack(side=tk.TOP, fill=tk.BOTH, padx=10, pady=5)
+    low_risk_section = tk.Frame(content_frame, width=400)
+    low_risk_section.pack(side=tk.LEFT, fill=tk.BOTH, padx=10, pady=5)
 
-    low_risk_button = ttk.Button(low_risk_section, text="▼ Low Risk", command=lambda: toggle_section(low_risk_frame, low_risk_button))
+    low_risk_button = ttk.Button(low_risk_section, text="▼ Low Risk", width=25, command=lambda: toggle_section(low_risk_frame, low_risk_button))
     low_risk_button.pack(fill=tk.X, padx=10, pady=5)
     low_risk_button.section_name = "Low Risk"
 
     low_risk_frame = ttk.Frame(low_risk_section, padding=10)
     low_risk_frame.pack(fill=tk.X, padx=10, pady=5)
-    alert_label_low = ttk.Label(low_risk_frame, text="No low-risk threats detected.", font=("Arial", 12), foreground="green")
+    alert_label_low = ttk.Label(low_risk_frame, text="No low-risk threats detected.", font=("Arial", 11), foreground="green")
     alert_label_low.pack(pady=5)
     
 def open_pcap_page():
@@ -208,7 +226,7 @@ def open_pcap_page():
         alert_container.pack(fill="x", pady=5)
 
         for alert in alerts:
-            alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 12, "bold"))
+            alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 11, "bold"))
             alert_detail.pack(anchor="w", pady=2, padx=5)
 
     content_frame.update_idletasks()
@@ -248,25 +266,25 @@ def process_packet(packet):
 
         if severity == "high":
             alert_label_high.pack_forget()
-            alert_container = tk.Frame(high_risk_frame, bd=2, relief="ridge", padx=5, pady=5)
+            alert_container = tk.Frame(high_risk_frame, width=20, bd=2, relief="ridge", padx=5, pady=5)
         if severity == "medium":
             alert_label_medium.pack_forget()
-            alert_container = tk.Frame(medium_risk_frame, bd=2, relief="ridge", padx=5, pady=5)
+            alert_container = tk.Frame(medium_risk_frame, width=20, bd=2, relief="ridge", padx=5, pady=5)
         if severity == "low":
             alert_label_low.pack_forget()
-            alert_container = tk.Frame(low_risk_frame, bd=2, relief="ridge", padx=5, pady=5)
+            alert_container = tk.Frame(low_risk_frame, width=20, bd=2, relief="ridge", padx=5, pady=5)
 
         alert_container.pack(fill="x", pady=5)
 
         for alert in detector.shared_alert:
             if severity == "high":
-                alert_detail = tk.Label(alert_container, text=alert, fg="red", font=("Arial", 12, "bold"), wraplength=500)
+                alert_detail = tk.Label(alert_container, text=alert, fg="red", font=("Arial", 11, "bold"), wraplength=300)
                 alert_detail.pack(anchor="w", pady=2, padx=5)
             if severity == "medium":
-                alert_detail = tk.Label(alert_container, text=alert, fg="orange", font=("Arial", 12, "bold"), wraplength=500)
+                alert_detail = tk.Label(alert_container, text=alert, fg="orange", font=("Arial", 11, "bold"), wraplength=300)
                 alert_detail.pack(anchor="w", pady=2, padx=5)
             if severity == "low":
-                alert_detail = tk.Label(alert_container, text=alert, fg="green", font=("Arial", 12, "bold"), wraplength=500)
+                alert_detail = tk.Label(alert_container, text=alert, fg="green", font=("Arial", 11, "bold"), wraplength=300)
                 alert_detail.pack(anchor="w", pady=2, padx=5)
 
         detector.shared_alert.clear()
