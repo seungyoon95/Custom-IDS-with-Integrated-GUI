@@ -268,7 +268,7 @@ def tcp_connect_scan_pcap(file_name, ip_whitelist):
 
 
 def syn_scan_pcap(file_name, ip_whitelist):
-    capture = pyshark.FileCapture(file_name, display_filter="tcp.flags==0x02")
+    capture = pyshark.FileCapture(file_name)
     syn_packets = {}
 
     attacker_ip = []
@@ -277,12 +277,20 @@ def syn_scan_pcap(file_name, ip_whitelist):
     attack_info = []
 
     for packet in capture:
-        src_ip = packet.ip.src
-        dst_ip = packet.ip.dst
-        src_port = int(packet.tcp.srcport)
-        dst_port = int(packet.tcp.dstport)
-        timestamp = float(packet.sniff_timestamp)
-        syn_packets.setdefault(src_ip, {}).update({dst_port: timestamp})
+        if 'IP' in packet and 'TCP' in packet:
+            src_ip = packet.ip.src
+            dst_ip = packet.ip.dst
+            src_port = int(packet.tcp.srcport)
+            dst_port = int(packet.tcp.dstport)
+            timestamp = float(packet.sniff_timestamp)
+
+            tcp_flags = int(packet.tcp.flags, 16)
+
+            if tcp_flags & 0x02:
+                syn_packets.setdefault(src_ip, {}).update({dst_port: timestamp})
+
+            if tcp_flags & 0x10 and src_ip in syn_packets:
+                del syn_packets[src_ip]
 
     for src_ip, ports in syn_packets.items():
         if len(ports) > constants.SCAN_THRESHOLD and src_ip not in attacker_ip and src_ip not in ip_whitelist:
