@@ -447,6 +447,7 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
                             attacker_ip.append(packet.ip.src)
 
                             attack_info.append(packet.sniff_time)
+                            attack_info.append("DNS")
                             attack_info.append(prev_ip)
                             attack_info.append(resolved_ip)
                             attack_info.append(domain)
@@ -459,15 +460,18 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
 
         if 'ARP' in packet:
             try:
-                src_ip = packet.arp.psrc
-                src_mac = packet.arp.hwsrc
-                if src_ip in arp_table and arp_table[src_ip] != src_mac:
-                    print(f"[ALERT] ARP Spoofing detected! IP: {src_ip}, MAC: {src_mac}")
+                src_ip = packet.arp.src_proto_ipv4
+                dst_mac = packet.arp.dst_hw_mac
+                if src_ip not in arp_table:
+                    arp_table[src_ip] = dst_mac
+                if src_ip in arp_table and arp_table[src_ip] != dst_mac:
                     attacker_ip.append(src_ip)
                     
                     attack_info.append(packet.sniff_time)
+                    attack_info.append("ARP")
                     attack_info.append(src_ip)
-                    attack_info.append(src_mac)
+                    attack_info.append(arp_table[src_ip])
+                    attack_info.append(dst_mac)
 
                     attacks.append(attack_info)
             except AttributeError:
@@ -481,12 +485,15 @@ def dns_arp_spoof_pcap(file_name, ip_whitelist):
     if len(attacks) > 0:
         for attack in attacks:
             alert.append(attack[0])
-            alert.append("Attack Type: DNS / ARP SPOOFING")
-            alert.append(f"{attack[1]} -> {attack[2]}")
-            try:
-                alert.append(f"Domain: {attack[3]}")
-            except IndexError:
-                pass
+            
+            if attack[1] == "DNS":
+                alert.append("Attack Type: DNS SPOOFING")
+                alert.append(f"Attacker IP: {attack[2]}")
+                alert.append(f"DNS Change: {attack[3]} to {attack[4]}")
+            if attack[1] == "ARP":
+                alert.append("Attack Type: ARP SPOOFING")
+                alert.append(f"Attacker IP: {attack[2]}")
+                alert.append(f"MAC Change: {attack[3]} to {attack[4]}")
             
             alerts.append(alert)
 
@@ -547,16 +554,16 @@ def ssh_brute_force_pcap(file_name, ip_whitelist):
                                 attempts.append(data)
                                 matched = True
                     
-            if src_ip in ssh_count:
-                if ssh_count[src_ip] > constants.SSH_THRESHOLD and src_ip not in attacker_ip:
-                    attacker_ip.append(src_ip)
+                if src_ip in ssh_count:
+                    if ssh_count[src_ip] > constants.SSH_THRESHOLD and src_ip not in attacker_ip:
+                        attacker_ip.append(src_ip)
 
-                    attack_info.append(packet.sniff_time)
-                    attack_info.append(src_ip)
-                    attack_info.append(dst_ip)
-                    attack_info.append(attempts)
+                        attack_info.append(packet.sniff_time)
+                        attack_info.append(src_ip)
+                        attack_info.append(dst_ip)
+                        attack_info.append(attempts)
 
-                    attacks.append(attack_info)
+                        attacks.append(attack_info)
         except AttributeError:
             continue
 
