@@ -567,47 +567,49 @@ def command_injection_pcap(file_name, ip_whitelist):
     attack_info = []
 
     for packet in capture:
-        if 'TCP' in packet and packet.tcp.payload and packet.ip.src not in ip_whitelist:
-            src_ip = packet.ip.src
-            dst_ip = packet.ip.dst
-            src_port = int(packet.tcp.srcport)
-            dst_port = int(packet.tcp.dstport)
-            
-            payload = packet.tcp.payload
-            payload_split = payload.split(':')
-            payload_chars = map(lambda hex: chr(int(hex, 16)), payload_split)
+        try:
+            if 'TCP' in packet and packet.tcp.payload and packet.ip.src not in ip_whitelist:
+                src_ip = packet.ip.src
+                dst_ip = packet.ip.dst
+                src_port = int(packet.tcp.srcport)
+                dst_port = int(packet.tcp.dstport)
+                
+                payload = packet.tcp.payload
+                payload_split = payload.split(':')
+                payload_chars = map(lambda hex: chr(int(hex, 16)), payload_split)
 
-            data = ''.join(payload_chars)
-            print(data)
-            patterns = [
-                r"(cat\s+/etc/passwd)",
-                r"(rm\s+-rf\s+/)",
-                r"(cp\s+\S+\s+/tmp/|cp\s+/etc/\S+)",
-                r"(mv\s+\S+\s+/tmp/|mv\s+/etc/\S+)",
-                r"(chmod\s+[0-7]{3}\s+\S+)",
-                r"(ifconfig\s+)",
-                r"(iptables\s+)",
-                r"(ps\s+aux)",
-                r"(kill\s+\d+)",
-                r"(top\s+-u\s+\S+)",
-                r"(uname\s+-a)",
-                r"(uptime\s+)",
-                r"(echo\s+\S+)",
-                # r"(sleep\s+\d+)",
-            ]
+                data = ''.join(payload_chars)
+                # print(data)
+                patterns = [
+                    r"cat\s+/etc/passwd",
+                    r"rm\s+-rf\s+/",
+                    r"cp\s+\S+\s+/tmp/|cp\s+/etc/\S+",
+                    r"mv\s+\S+\s+/tmp/|mv\s+/etc/\S+",
+                    r"chmod\s+[0-7]{3}\s+\S+",
+                    r"ifconfig\s+",
+                    r"iptables\s+",
+                    r"ps\s+aux",
+                    r"kill\s+\d+",
+                    r"top\s+-u\s+\S+",
+                    r"uname\s+-a",
+                    r"uptime\s+",
+                    r"echo\s+\S+"
+                ]
 
-            for pattern in patterns:
-                if re.search(pattern, data, re.IGNORECASE):
-                    attacker_ip.append(src_ip)
+                for pattern in patterns:
+                    if re.search(pattern, data, re.IGNORECASE):
+                        attacker_ip.append(src_ip)
 
-                    attack_info.append(packet.sniff_time)
-                    attack_info.append(src_ip)
-                    attack_info.append(dst_ip)
-                    attack_info.append(src_port)
-                    attack_info.append(dst_port)
-                    attack_info.append(pattern)
+                        attack_info.append(packet.sniff_time)
+                        attack_info.append(src_ip)
+                        attack_info.append(dst_ip)
+                        attack_info.append(src_port)
+                        attack_info.append(dst_port)
+                        attack_info.append(pattern)
 
-                    attacks.append(attack_info)
+                        attacks.append(attack_info)
+        except AttributeError as e:
+            continue
 
     capture.close()
 
@@ -644,33 +646,42 @@ def sql_injection_pcap(file_name, ip_whitelist):
     attack_info = []
 
     for packet in capture:
-        if 'TCP' in packet and 'Raw' in packet and int(packet.ip.src) not in ip_whitelist:
-            src_ip = packet.ip.src
-            dst_ip = packet.ip.dst
-            src_port = int(packet.tcp.srcport)
-            dst_port = int(packet.tcp.dstport)
+        try:
+            if 'TCP' in packet and packet.tcp.payload and packet.ip.src not in ip_whitelist:
+                src_ip = packet.ip.src
+                dst_ip = packet.ip.dst
+                src_port = int(packet.tcp.srcport)
+                dst_port = int(packet.tcp.dstport)
 
-            payload = packet['Raw'].load.decode(errors="ignore")
-            patterns = [
-                r"' OR '1'='1",
-                r'UNION SELECT',
-                r'; DROP TABLE',
-                r'" OR "1"="1',
-                r"' OR 1=1 --",
-                r"admin' --",
-            ]
-            for pattern in patterns:
-                if re.search(pattern, payload, re.IGNORECASE):
-                    attacker_ip.append(src_ip)
+                payload = packet.tcp.payload
+                payload_split = payload.split(':')
+                payload_chars = map(lambda hex: chr(int(hex, 16)), payload_split)
 
-                    attack_info.append(packet.sniff_time)
-                    attack_info.append(src_ip)
-                    attack_info.append(dst_ip)
-                    attack_info.append(src_port)
-                    attack_info.append(dst_port)
-                    attack_info.append(pattern)
+                data = ''.join(payload_chars)
 
-                    attacks.append(attack_info)
+                patterns = [
+                    r"' OR '1'='1",
+                    r'UNION\s+SELECT',
+                    r';\sDROP\s+TABLE',
+                    r'" OR "1"="1',
+                    r"'?\bOR\s*1\s*=\s*1\s*--"
+                ]
+
+                for pattern in patterns:
+                    if re.search(pattern, data, re.IGNORECASE):
+                        attacker_ip.append(src_ip)
+
+                        attack_info.append(packet.sniff_time)
+                        attack_info.append(src_ip)
+                        attack_info.append(dst_ip)
+                        attack_info.append(src_port)
+                        attack_info.append(dst_port)
+                        attack_info.append(pattern)
+
+                        attacks.append(attack_info)
+        except AttributeError as e:
+            continue
+        
 
     capture.close()
 
