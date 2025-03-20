@@ -292,7 +292,7 @@ def syn_scan_pcap(file_name, ip_whitelist):
             attack_info.append(src_ip)
             attack_info.append(dst_ip)
             attack_info.append(src_port)
-            attack_info.append(ports)
+            attack_info.append(ports.keys())
 
             attacks.append(attack_info)
 
@@ -338,8 +338,6 @@ def xmas_scan_pcap(file_name, ip_whitelist):
         dst_port = int(packet.tcp.dstport)
 
         if src_ip not in ip_whitelist:
-            # attacker_ip.append(src_ip)
-
             attack_info.append(packet.sniff_time)
             attack_info.append(src_ip)
             attack_info.append(dst_ip)

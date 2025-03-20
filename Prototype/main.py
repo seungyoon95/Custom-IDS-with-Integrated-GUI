@@ -223,10 +223,10 @@ def open_pcap_page():
     
     for alerts in pcap_analysis:
         alert_container = tk.Frame(content_frame, bd=2, relief="ridge",padx=5, pady=5)
-        alert_container.pack(fill="x", pady=5)
+        alert_container.pack(side=tk.TOP, fill="x", pady=5)
 
         for alert in alerts:
-            alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 11, "bold"))
+            alert_detail = tk.Label(alert_container, text=alert, fg="black", font=("Arial", 11, "bold"), wraplength=500)
             alert_detail.pack(anchor="w", pady=2, padx=5)
 
     content_frame.update_idletasks()
