@@ -326,8 +326,6 @@ def syn_scan_pcap(file_name, ip_whitelist):
 def xmas_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp.flags==0x29")
 
-    attacker_ip = []
-
     attacks = []
     attack_info = []
 
@@ -373,8 +371,6 @@ def xmas_scan_pcap(file_name, ip_whitelist):
 
 def null_scan_pcap(file_name, ip_whitelist):
     capture = pyshark.FileCapture(file_name, display_filter="tcp.flags==0x00")
-
-    attacker_ip = []
 
     attacks = []
     attack_info = []
@@ -570,47 +566,48 @@ def command_injection_pcap(file_name, ip_whitelist):
     attacks = []
     attack_info = []
 
-    whitelisted_ports = [80, 443]
-
     for packet in capture:
-        if 'TCP' in packet and 'Raw' in packet and int(packet.ip.src) not in ip_whitelist:
-            if int(packet.tcp.dport) not in whitelisted_ports:
-                src_ip = packet.ip.src
-                dst_ip = packet.ip.dst
-                src_port = int(packet.tcp.srcport)
-                dst_port = int(packet.tcp.dstport)
-                
-                payload = packet['Raw'].load.decode(errors="ignore")
+        if 'TCP' in packet and packet.tcp.payload and packet.ip.src not in ip_whitelist:
+            src_ip = packet.ip.src
+            dst_ip = packet.ip.dst
+            src_port = int(packet.tcp.srcport)
+            dst_port = int(packet.tcp.dstport)
+            
+            payload = packet.tcp.payload
+            payload_split = payload.split(':')
+            payload_chars = map(lambda hex: chr(int(hex, 16)), payload_split)
 
-                patterns = [
-                    r"(cat\s+/etc/passwd)",
-                    r"(rm\s+-rf\s+/)",
-                    r"(cp\s+\S+\s+/tmp/|cp\s+/etc/\S+)",
-                    r"(mv\s+\S+\s+/tmp/|mv\s+/etc/\S+)",
-                    r"(chmod\s+[0-7]{3}\s+\S+)",
-                    r"(ifconfig\s+)",
-                    r"(iptables\s+)",
-                    r"(ps\s+aux)",
-                    r"(kill\s+\d+)",
-                    r"(top\s+-u\s+\S+)",
-                    r"(uname\s+-a)",
-                    r"(uptime\s+)",
-                    r"(echo\s+\S+)",
-                    r"(sleep\s+\d+)",
-                ]
+            data = ''.join(payload_chars)
+            print(data)
+            patterns = [
+                r"(cat\s+/etc/passwd)",
+                r"(rm\s+-rf\s+/)",
+                r"(cp\s+\S+\s+/tmp/|cp\s+/etc/\S+)",
+                r"(mv\s+\S+\s+/tmp/|mv\s+/etc/\S+)",
+                r"(chmod\s+[0-7]{3}\s+\S+)",
+                r"(ifconfig\s+)",
+                r"(iptables\s+)",
+                r"(ps\s+aux)",
+                r"(kill\s+\d+)",
+                r"(top\s+-u\s+\S+)",
+                r"(uname\s+-a)",
+                r"(uptime\s+)",
+                r"(echo\s+\S+)",
+                # r"(sleep\s+\d+)",
+            ]
 
-                for pattern in patterns:
-                    if re.search(pattern, payload, re.IGNORECASE):
-                        attacker_ip.append(src_ip)
+            for pattern in patterns:
+                if re.search(pattern, data, re.IGNORECASE):
+                    attacker_ip.append(src_ip)
 
-                        attack_info.append(packet.sniff_time)
-                        attack_info.append(src_ip)
-                        attack_info.append(dst_ip)
-                        attack_info.append(src_port)
-                        attack_info.append(dst_port)
-                        attack_info.append(pattern)
+                    attack_info.append(packet.sniff_time)
+                    attack_info.append(src_ip)
+                    attack_info.append(dst_ip)
+                    attack_info.append(src_port)
+                    attack_info.append(dst_port)
+                    attack_info.append(pattern)
 
-                        attacks.append(attack_info)
+                    attacks.append(attack_info)
 
     capture.close()
 
