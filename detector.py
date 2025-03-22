@@ -4,13 +4,16 @@ from datetime import datetime
 import time
 import os
 import socket
+import subprocess
 import re
 from collections import defaultdict, deque
 
+from scapy.all import conf
 from scapy.layers.inet import IP, TCP, UDP, ICMP
 from scapy.packet import Raw
-from scapy.layers.l2 import ARP
+from scapy.layers.l2 import ARP, Ether
 from scapy.layers.dns import DNS, DNSRR
+from scapy.sendrecv import srp
 
 # Email-related imports
 import credential
@@ -468,7 +471,13 @@ def type_scan(packet, ip_whitelist, log, gui_display, email, email_address):
 
 
 def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address):
-    arp_cache["192.168.1.1"] = "a8-fb-40-9d-d1-03" # for testing
+    # hardcoded router ip and mac address stored in arp cache due to bugs that I couldn't fix
+    router_ip = "192.168.1.1"
+    router_mac = "a8:fb:40:9d:d1:03"
+    
+    if router_ip not in arp_cache:
+        arp_cache[router_ip] = router_mac
+
     if packet.haslayer(ARP) and packet[ARP].op == 2:
         src_ip = packet[ARP].psrc
         src_mac = packet[ARP].hwsrc
@@ -504,7 +513,7 @@ def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address):
                             prev_ip, timestamp, change_count = dns_cache[dns_query]
 
                             if prev_ip != dns_responses[0] and (current_time - timestamp) <= constants.TIMEFRAME:
-                                if change_count < 10:
+                                if change_count < 1:
                                     dns_cache[dns_query] = (dns_responses[0], current_time, change_count + 1)
                                 else:
                                     if log:
@@ -512,7 +521,7 @@ def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address):
                                     if gui_display:
                                         display_on_gui("DNS SPOOFING", packet, dns_query)
                                     if email:
-                                        alert_to_email("DNS SPOOFING", packet, dns_query)
+                                        alert_to_email("DNS SPOOFING", packet, email_address, dns_query)
                             else:
                                 dns_cache[dns_query] = (dns_responses[0], current_time, change_count + 1)
                         else:
