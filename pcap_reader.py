@@ -1,12 +1,10 @@
 import constants
 
-import pyshark
-
 from collections import defaultdict
 from datetime import timedelta
 import time
+import pyshark
 import re
-
 
 def syn_flood_pcap(file_name, ip_whitelist):
     timeframe = constants.TIMEFRAME
@@ -390,9 +388,7 @@ def null_scan_pcap(file_name, ip_whitelist):
         src_port = int(packet.tcp.srcport)
         dst_port = int(packet.tcp.dstport)
 
-        if src_ip not in ip_whitelist:
-            # attacker_ip.append(src_ip)
-            
+        if src_ip not in ip_whitelist:            
             attack_info.append(packet.sniff_time)
             attack_info.append(src_ip)
             attack_info.append(dst_ip)

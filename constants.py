@@ -1,8 +1,8 @@
-FLOOD_THRESHOLD = 500   # number of packets from single source before identifying as DOS attack
-SCAN_THRESHOLD = 5      # number of ports before identifying as scan attempt
+FLOOD_THRESHOLD = 500
+SCAN_THRESHOLD = 5
 
 MAX_PENDING = 50
 
-SSH_THRESHOLD = 5       # number of brute force attempts
+SSH_THRESHOLD = 5
 
-TIMEFRAME = 1           # seconds
+TIMEFRAME = 1

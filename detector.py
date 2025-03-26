@@ -4,16 +4,13 @@ from datetime import datetime
 import time
 import os
 import socket
-import subprocess
 import re
 from collections import defaultdict, deque
 
-from scapy.all import conf
 from scapy.layers.inet import IP, TCP, UDP, ICMP
 from scapy.packet import Raw
-from scapy.layers.l2 import ARP, Ether
+from scapy.layers.l2 import ARP
 from scapy.layers.dns import DNS, DNSRR
-from scapy.sendrecv import srp
 
 # Email-related imports
 import credential
@@ -25,7 +22,6 @@ from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
 
 # Dictionaries to hold packet counts from 
 syn_count = defaultdict(list)
@@ -135,7 +131,6 @@ def display_on_gui(attack_type, packet, info=None):
         shared_alert.append(f"Destination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
         shared_alert.append(f"Command Detected: {info}")
 
-# Writes packet info to a log file
 def write_to_log(attack_type, packet, info=None):
     current_date = datetime.now().strftime('%Y-%m-%d')
 
@@ -186,7 +181,6 @@ def write_to_log(attack_type, packet, info=None):
             f.write(f"\nDestination IP and Port: {packet[IP].dst}:{packet[TCP].dport}")
             f.write(f"\nCommand Detected: {info}")
     
-
 def alert_to_email(attack_type, packet, email_address, info=None):
     SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
@@ -274,7 +268,6 @@ def alert_to_email(attack_type, packet, email_address, info=None):
     
     return send_message
 
-
 def ip_whitelisting(ip_address):
     for ip in ip_address:
         if ip is not None and ip not in ip_whitelist:
@@ -283,8 +276,6 @@ def ip_whitelisting(ip_address):
 
     return ip_whitelist
 
-
-# Detects SYN Flood Attack based on given timeframe and threshold
 def syn_flood(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(TCP) and packet.haslayer(IP):
         source_ip = packet[IP].src
@@ -317,8 +308,6 @@ def syn_flood(packet, ip_whitelist, log, gui_display, email, email_address):
                     if pending_handshake[(source_ip, dst_ip)]:
                         pending_handshake[(source_ip, dst_ip)].popleft()    
                 
-
-# Detects UDP Flood Attack based on given timeframe and threshold
 def udp_flood(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(UDP) and packet.haslayer(IP):
         whitelisted_port = [53, 80, 123, 443]
@@ -342,8 +331,6 @@ def udp_flood(packet, ip_whitelist, log, gui_display, email, email_address):
                     if email:
                         alert_to_email("UDP FLOOD", packet, email_address, "UDP")
 
-
-# Detects ICMP Flood Attack based on given timeframe and threshold
 def icmp_flood(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(ICMP) and packet.haslayer(IP):
         source_ip = packet[IP].src
@@ -363,12 +350,10 @@ def icmp_flood(packet, ip_whitelist, log, gui_display, email, email_address):
                     if email:
                         alert_to_email("ICMP FLOOD", packet, email_address, "ICMP")
 
-
 def type_flood(packet, ip_whitelist, log, gui_display, email, email_address):
     syn_flood(packet, ip_whitelist, log, gui_display, email, email_address)
     udp_flood(packet, ip_whitelist, log, gui_display, email, email_address)
     icmp_flood(packet, ip_whitelist, log, gui_display, email, email_address)
-
 
 def tcp_connect_scan(packet, ip_whitelist, log, gui_display, email, email_address):
     whitelisted_port = [22, 53, 443]
@@ -401,7 +386,6 @@ def tcp_connect_scan(packet, ip_whitelist, log, gui_display, email, email_addres
                         display_on_gui("TCP CONNECT SCAN", packet, list(completed_handshake[source_ip].keys()))
                     if email:
                         alert_to_email("TCP CONNECT SCAN", packet, email_address, list(completed_handshake[source_ip].keys()))
-
 
 def syn_scan(packet, ip_whitelist, log, gui_display, email, email_address):
     whitelisted_port = [22, 53, 443]
@@ -436,7 +420,6 @@ def syn_scan(packet, ip_whitelist, log, gui_display, email, email_address):
                         if email:
                             alert_to_email("SYN SCAN", packet, email_address, list(syn_scans[source_ip].keys()))
 
-
 def xmas_scan(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(TCP):
         tcp_flags = packet[TCP].flags
@@ -448,7 +431,6 @@ def xmas_scan(packet, ip_whitelist, log, gui_display, email, email_address):
                 display_on_gui("XMAS SCAN", packet, "TCP")
             if email:
                 alert_to_email("XMAS SCAN", packet, email_address, "TCP")
-
 
 def null_scan(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(TCP):
@@ -462,13 +444,11 @@ def null_scan(packet, ip_whitelist, log, gui_display, email, email_address):
             if email:
                 alert_to_email("NULL SCAN", packet, email_address, "TCP")            
 
-
 def type_scan(packet, ip_whitelist, log, gui_display, email, email_address):
     tcp_connect_scan(packet, ip_whitelist, log, gui_display, email, email_address)
     syn_scan(packet, ip_whitelist, log, gui_display, email, email_address)
     xmas_scan(packet, ip_whitelist, log, gui_display, email, email_address)
     null_scan(packet, ip_whitelist, log, gui_display, email, email_address)
-
 
 def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address):
     # hardcoded router ip and mac address stored in arp cache due to bugs that I couldn't fix
@@ -527,7 +507,6 @@ def dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address):
                         else:
                             dns_cache[dns_query] = (dns_responses[0], current_time, 1)
 
-
 def ssh_brute_force(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(TCP) and packet[TCP].dport == 22:
         src_ip = packet[IP].src
@@ -549,7 +528,6 @@ def ssh_brute_force(packet, ip_whitelist, log, gui_display, email, email_address
                     display_on_gui("SSH BRUTE FORCE", packet, ssh_payloads[src_ip])
                 if email:
                     alert_to_email("SSH BRUTE FORCE", packet, email_address, ssh_payloads[src_ip])
-
 
 def command_injection(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(Raw) and packet.haslayer(TCP) and packet[IP].src not in ip_whitelist:
@@ -580,7 +558,6 @@ def command_injection(packet, ip_whitelist, log, gui_display, email, email_addre
                 if email:
                     alert_to_email("COMMAND INJECTION", packet, email_address, pattern)
 
-
 def sql_injection(packet, ip_whitelist, log, gui_display, email, email_address):
     if packet.haslayer(TCP) and packet.haslayer(Raw) and packet[IP].src not in ip_whitelist:
         payload = packet[Raw].load.decode(errors="ignore")
@@ -601,15 +578,12 @@ def sql_injection(packet, ip_whitelist, log, gui_display, email, email_address):
                 if email:
                     alert_to_email("SQL INJECTION", packet, email_address, clean_pattern)
 
-
 def type_other(packet, ip_whitelist, log, gui_display, email, email_address):
     dns_arp_spoof(packet, ip_whitelist, log, gui_display, email, email_address)
     ssh_brute_force(packet, ip_whitelist, log, gui_display, email, email_address)
     command_injection(packet, ip_whitelist, log, gui_display, email, email_address)
     sql_injection(packet, ip_whitelist, log, gui_display, email, email_address)
 
-
-# Runs Attack Analyzer to detect different attacks, to be called when sniffing network traffic
 def attack_analyzer(packet, ip_address=None, log=True, gui_display=False, email=False, email_address = None):
     ip_whitelist = ip_whitelisting(ip_address)
         

@@ -3,7 +3,11 @@ import re
 from scapy.all import conf
 
 def get_mac(router_ip):
-    command = f"arp -n {router_ip}"
+    # For Linux
+    # command = f"arp -n {router_ip}"
+    # For Windows
+    command = f"arp -a {router_ip}"
+
     try:
         output = subprocess.check_output(command, shell=True, text=True)
 
